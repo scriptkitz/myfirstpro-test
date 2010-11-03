@@ -55,11 +55,12 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;		// 未能创建
 	}
 
-	if (!m_wndReBar.Create(this) || !m_wndReBar.AddBar(&m_wndToolBar) || !m_wndReBar.AddBar(&m_wndDlgBar))
+	if (!m_wndReBar.Create(this) || !m_wndReBar.AddBar(&m_wndToolBar,0,0,RBBS_BREAK|RBBS_NOGRIPPER|RBBS_CHILDEDGE|RBBS_USECHEVRON|RBBS_HIDETITLE|RBBS_TOPALIGN) || !m_wndReBar.AddBar(&m_wndDlgBar,0,0,RBBS_BREAK|RBBS_NOGRIPPER|RBBS_HIDETITLE))
 	{
 		TRACE0("未能创建 Rebar\n");
 		return -1;      // 未能创建
 	}
+	
 
 	if (!m_wndStatusBar.Create(this))
 	{
@@ -70,7 +71,6 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// TODO: 如果不需要工具提示，则将此移除
 	m_wndToolBar.SetBarStyle(m_wndToolBar.GetBarStyle() | CBRS_TOOLTIPS | CBRS_FLYBY);
-
 	return 0;
 }
 
