@@ -27,11 +27,11 @@ public:
 	virtual void AssertValid() const;
 	virtual void Dump(CDumpContext& dc) const;
 #endif
-
+	CDialogBar        m_wndDlgBar;
 protected:  // 控件条嵌入成员
 	CToolBar          m_wndToolBar;
 	CReBar            m_wndReBar;
-	CDialogBar        m_wndDlgBar;
+	
 	CStatusBar        m_wndStatusBar;
 
 // 生成的消息映射函数

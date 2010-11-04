@@ -17,7 +17,7 @@ public:
 
 // ²Ù×÷
 public:
-
+	INT m_index;
 // ÖØÐ´
 public:
 	virtual BOOL OnNewDocument();
