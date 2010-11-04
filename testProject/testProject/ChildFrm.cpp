@@ -54,3 +54,22 @@ void CChildFrame::Dump(CDumpContext& dc) const
 #endif //_DEBUG
 
 // CChildFrame 消息处理程序
+
+
+void CChildFrame::ActivateFrame(int nCmdShow)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	nCmdShow = SW_SHOWMAXIMIZED; //激活子窗口最大化每次。
+	
+	CMDIChildWnd::ActivateFrame(nCmdShow);
+	//ModifyStyle(WS_MAXIMIZEBOX|WS_MINIMIZEBOX|WS_MAXIMIZE|WS_MINIMIZE,0);//想最大化和最小化按纽
+}
+
+
+BOOL CChildFrame::OnCommand(WPARAM wParam, LPARAM lParam)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	WORD iid = LOWORD(wParam);
+	
+	return CMDIChildWnd::OnCommand(wParam, lParam);
+}

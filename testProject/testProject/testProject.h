@@ -49,8 +49,6 @@ private:
 	afx_msg void funUpdateTabBtnCmd(CCmdUI*);
 
 	int currentBtnID;
-public:
-	void setBtnEnable(CString title);
 };
 
 extern CtestProjectApp theApp;

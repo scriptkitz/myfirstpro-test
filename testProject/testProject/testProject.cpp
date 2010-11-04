@@ -171,7 +171,10 @@ CtestProjectApp::~CtestProjectApp()
 
 
 
+void myDrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
+{
 
+}
 bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 {
 	 
@@ -187,13 +190,15 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 	 {
 		 return false;
 	 }
+	 
 	 CButton *tbtn = new CButton();
 	CRect rc;
 	mf->m_wndDlgBar.GetClientRect(&rc);
 	int btnid = m_validIndex[m_validIndex.size()-1];
-	tbtn->Create(title,WS_VISIBLE|BS_FLAT ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
-	//SetWindowLong(tbtn->GetSafeHwnd(),GWL_EXSTYLE,WS_EX_WINDOWEDGE);
+	testDoc->m_index = btnid;
+	tbtn->Create(title,WS_VISIBLE|BS_FLAT/*|BS_OWNERDRAW*/ ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
 	m_validIndex.pop_back();
+	UINT uu = tbtn->GetState();
 	m_docBtnMap[title] = tbtn;
 	currentBtnID = btnid;
 	return true;
@@ -201,35 +206,37 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 
 void CtestProjectApp::funTabBtnCmd(UINT tabId)
 {
-	/*CString btnID;
-	btnID.Format(TEXT("%d"),tabId);
-	MessageBox(m_pMainWnd->GetSafeHwnd(),btnID,TEXT(""),0);*/
+	 /*CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	 mf->chi
+	 CtestProjectDoc *activDoc = (CtestProjectDoc *)mf->MDIGetActive()->GetActiveDocument();
+	 POSITION pos = activDoc->GetFirstViewPosition();
+	 CtestProjectView* cv = (CtestProjectView*)activDoc->GetNextView(pos);*/
+
+
+
+
+
+
 	currentBtnID = tabId;
-	CMainFrame *mf = (CMainFrame*)m_pMainWnd;
-	SetWindowLong(mf->m_wndDlgBar.GetDlgItem(tabId)->GetSafeHwnd(),GWL_STYLE,WS_VISIBLE|BS_FLAT);
 	return;
 }
 void CtestProjectApp::funUpdateTabBtnCmd(CCmdUI* ui)
 {
-	//CString btnID;
-	//MessageBox(m_pMainWnd->GetSafeHwnd(),btnID,TEXT(""),0);
+	CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	CButton* cbt = (CButton*)mf->m_wndDlgBar.GetDlgItem(ui->m_nID);
+	long oldstyle = cbt->GetButtonStyle();
+	if (oldstyle & BS_DEFPUSHBUTTON)
+	{
+		cbt->SetButtonStyle(oldstyle & ~BS_DEFPUSHBUTTON);//更新UI的时候检测是否按钮有黑边，有就消掉。难看。哈。
+	}
 	if (ui->m_nID == currentBtnID)
 	{
+		
 		ui->Enable(FALSE);
 	}
 	else
-		ui->Enable(TRUE);
-	return;
-}
-void CtestProjectApp::setBtnEnable(CString title)
-{
-	DOCBTN_MAP::iterator it = m_docBtnMap.begin();
-	while(it != m_docBtnMap.end())
 	{
-		if(it->first == title)
-			it->second->EnableWindow(false);
-		else
-			it->second->EnableWindow(true);
-		it++;
+		ui->Enable(TRUE);
 	}
+	return;
 }
