@@ -15,7 +15,6 @@
 #define new DEBUG_NEW
 #endif
 
-
 // CtestProjectApp
 
 BEGIN_MESSAGE_MAP(CtestProjectApp, CWinApp)
@@ -23,6 +22,8 @@ BEGIN_MESSAGE_MAP(CtestProjectApp, CWinApp)
 	// 基于文件的标准文档命令
 	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
 	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
+	ON_COMMAND_RANGE(USER_INDEX,USER_INDEX+MAX_DOC_CONT,funTabBtnCmd)
+	ON_UPDATE_COMMAND_UI_RANGE(USER_INDEX,USER_INDEX+MAX_DOC_CONT,funUpdateTabBtnCmd)
 END_MESSAGE_MAP()
 
 
@@ -110,7 +111,10 @@ BOOL CtestProjectApp::InitInstance()
 	// 主窗口已初始化，因此显示它并对其进行更新
 	pMainFrame->ShowWindow(m_nCmdShow);
 	pMainFrame->UpdateWindow();
-
+	for (int i=0;i<MAX_DOC_CONT;i++)
+	{
+		m_validIndex.push_back(USER_INDEX+i);
+	}
 	return TRUE;
 }
 
@@ -152,8 +156,80 @@ void CtestProjectApp::OnAppAbout()
 	CAboutDlg aboutDlg;
 	aboutDlg.DoModal();
 }
-
+CtestProjectApp::~CtestProjectApp()
+{
+	DOCBTN_MAP::iterator bb = m_docBtnMap.begin();
+	while (bb != m_docBtnMap.end())
+	{
+		delete bb->second;
+		bb->second = NULL;
+		bb++;
+	}
+	
+}
 // CtestProjectApp 消息处理程序
 
 
 
+
+bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
+{
+	 
+	 CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	 CString title = testDoc->GetTitle();
+	 INT docount = m_docBtnMap.size();
+	 if (docount >= MAX_DOC_CONT)
+	 {
+		 MessageBox(m_pMainWnd->GetSafeHwnd(),TEXT("不给你创建啦...哈。"),TEXT("提示温馨的"),0);
+		 return false;
+	 }
+	 if (m_docBtnMap.find(title) != m_docBtnMap.end())
+	 {
+		 return false;
+	 }
+	 CButton *tbtn = new CButton();
+	CRect rc;
+	mf->m_wndDlgBar.GetClientRect(&rc);
+	int btnid = m_validIndex[m_validIndex.size()-1];
+	tbtn->Create(title,WS_VISIBLE|BS_FLAT ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
+	//SetWindowLong(tbtn->GetSafeHwnd(),GWL_EXSTYLE,WS_EX_WINDOWEDGE);
+	m_validIndex.pop_back();
+	m_docBtnMap[title] = tbtn;
+	currentBtnID = btnid;
+	return true;
+}
+
+void CtestProjectApp::funTabBtnCmd(UINT tabId)
+{
+	/*CString btnID;
+	btnID.Format(TEXT("%d"),tabId);
+	MessageBox(m_pMainWnd->GetSafeHwnd(),btnID,TEXT(""),0);*/
+	currentBtnID = tabId;
+	CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	SetWindowLong(mf->m_wndDlgBar.GetDlgItem(tabId)->GetSafeHwnd(),GWL_STYLE,WS_VISIBLE|BS_FLAT);
+	return;
+}
+void CtestProjectApp::funUpdateTabBtnCmd(CCmdUI* ui)
+{
+	//CString btnID;
+	//MessageBox(m_pMainWnd->GetSafeHwnd(),btnID,TEXT(""),0);
+	if (ui->m_nID == currentBtnID)
+	{
+		ui->Enable(FALSE);
+	}
+	else
+		ui->Enable(TRUE);
+	return;
+}
+void CtestProjectApp::setBtnEnable(CString title)
+{
+	DOCBTN_MAP::iterator it = m_docBtnMap.begin();
+	while(it != m_docBtnMap.end())
+	{
+		if(it->first == title)
+			it->second->EnableWindow(false);
+		else
+			it->second->EnableWindow(true);
+		it++;
+	}
+}
