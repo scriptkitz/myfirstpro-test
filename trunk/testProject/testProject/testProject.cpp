@@ -206,17 +206,23 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 
 void CtestProjectApp::funTabBtnCmd(UINT tabId)
 {
-	 /*CMainFrame *mf = (CMainFrame*)m_pMainWnd;
-	 mf->chi
-	 CtestProjectDoc *activDoc = (CtestProjectDoc *)mf->MDIGetActive()->GetActiveDocument();
-	 POSITION pos = activDoc->GetFirstViewPosition();
-	 CtestProjectView* cv = (CtestProjectView*)activDoc->GetNextView(pos);*/
-
-
-
-
-
-
+	 CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	 CtestProjectDoc *activDoc = (CtestProjectDoc *)mf->MDIGetActive()->GetActiveDocument();//获取当前的doc。
+	 CDocTemplate *dt = activDoc->GetDocTemplate();//获取doc模板。
+	 POSITION posdoc = dt->GetFirstDocPosition();//开始遍历doc模板。
+	 while(posdoc)
+	 {
+		CtestProjectDoc* docs = (CtestProjectDoc*)dt->GetNextDoc(posdoc);
+		if(tabId == docs->m_index)
+		{
+			POSITION pos = docs->GetFirstViewPosition();
+			CtestProjectView* cv = (CtestProjectView*)docs->GetNextView(pos);
+			mf->MDIActivate(cv->GetParentFrame());//激活选中的按钮对应的ID的doc的ID相同的cv的parentframe--》childframe。
+			break;
+		}
+		
+	 }
+	//设置当前tabID。
 	currentBtnID = tabId;
 	return;
 }
