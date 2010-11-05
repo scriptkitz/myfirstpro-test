@@ -22,7 +22,7 @@ END_MESSAGE_MAP()
 
 // CtestProjectDoc 构造/析构
 
-CtestProjectDoc::CtestProjectDoc()
+CtestProjectDoc::CtestProjectDoc():m_btnID(0)
 {
 	// TODO: 在此添加一次性构造代码
 
@@ -30,6 +30,7 @@ CtestProjectDoc::CtestProjectDoc()
 
 CtestProjectDoc::~CtestProjectDoc()
 {
+	theApp.delDocTabBtn(this);
 }
 
 BOOL CtestProjectDoc::OnNewDocument()

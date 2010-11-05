@@ -34,12 +34,14 @@ public:
 	CtestProjectApp();
 	~CtestProjectApp();
 	bool addDocTabBtn(CtestProjectDoc* testDoc);
+	void delDocTabBtn(CtestProjectDoc* testDoc);
 
 // 重写
 public:
 	virtual BOOL InitInstance();
-	DOCBTN_MAP 	m_docBtnMap;
-	vector<int> m_validIndex;
+	DOCBTN_MAP 	m_docBtnMap;// 保存了一个title对应一个butn。
+	vector<int> m_validIndex;//保存可用的btnID
+	vector<CString> m_BtnIDOrder;//保存btn的顺序。。因为map无序，所以用这个保存顺序，以免显示乱。
 // 实现
 	afx_msg void OnAppAbout();
 	DECLARE_MESSAGE_MAP()

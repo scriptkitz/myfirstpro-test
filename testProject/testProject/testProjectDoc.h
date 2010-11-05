@@ -17,7 +17,7 @@ public:
 
 // ²Ù×÷
 public:
-	INT m_index;
+	INT m_btnID;
 // ÖØÐ´
 public:
 	virtual BOOL OnNewDocument();

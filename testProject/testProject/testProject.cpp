@@ -169,12 +169,39 @@ CtestProjectApp::~CtestProjectApp()
 }
 // CtestProjectApp 消息处理程序
 
-
-
-void myDrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
+void CtestProjectApp::delDocTabBtn(CtestProjectDoc* testDoc)
 {
-
+	DOCBTN_MAP::iterator it = m_docBtnMap.find(testDoc->GetTitle());
+	if( it == m_docBtnMap.end())
+		return;
+	delete it->second;
+	m_docBtnMap.erase(it);
+	
+	vector<CString>::iterator iit = m_BtnIDOrder.begin();
+	while (iit != m_BtnIDOrder.end())
+	{
+		if (*iit == testDoc->GetTitle())
+		{
+			m_BtnIDOrder.erase(iit);
+			break;
+		}
+		iit++;
+	}
+	CRect rc;
+	CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	mf->m_wndDlgBar.GetClientRect(&rc);
+	int btcount=0;
+	m_validIndex.push_back(testDoc->m_btnID);
+	iit = m_BtnIDOrder.begin();
+	while(iit != m_BtnIDOrder.end())
+	{
+		m_docBtnMap[*iit]->MoveWindow(CRect(TAB_WIDTH*btcount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(btcount+1),rc.bottom),1);
+		iit++;
+		btcount++;
+	}
 }
+
+
 bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 {
 	 
@@ -195,10 +222,10 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 	CRect rc;
 	mf->m_wndDlgBar.GetClientRect(&rc);
 	int btnid = m_validIndex[m_validIndex.size()-1];
-	testDoc->m_index = btnid;
+	testDoc->m_btnID = btnid;
 	tbtn->Create(title,WS_VISIBLE|BS_FLAT/*|BS_OWNERDRAW*/ ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
 	m_validIndex.pop_back();
-	UINT uu = tbtn->GetState();
+	m_BtnIDOrder.push_back(title);
 	m_docBtnMap[title] = tbtn;
 	currentBtnID = btnid;
 	return true;
@@ -213,7 +240,7 @@ void CtestProjectApp::funTabBtnCmd(UINT tabId)
 	 while(posdoc)
 	 {
 		CtestProjectDoc* docs = (CtestProjectDoc*)dt->GetNextDoc(posdoc);
-		if(tabId == docs->m_index)
+		if(tabId == docs->m_btnID)
 		{
 			POSITION pos = docs->GetFirstViewPosition();
 			CtestProjectView* cv = (CtestProjectView*)docs->GetNextView(pos);
