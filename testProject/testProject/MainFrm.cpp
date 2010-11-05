@@ -17,6 +17,8 @@ IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWnd)
 
 BEGIN_MESSAGE_MAP(CMainFrame, CMDIFrameWnd)
 	ON_WM_CREATE()
+	ON_COMMAND(ID_WINDOW_NEW, &CMainFrame::OnWindowNew)
+	ON_UPDATE_COMMAND_UI(ID_WINDOW_NEW, &CMainFrame::OnUpdateWindowNew)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -100,3 +102,17 @@ void CMainFrame::Dump(CDumpContext& dc) const
 
 
 // CMainFrame 消息处理程序
+
+
+void CMainFrame::OnWindowNew()
+{
+	//覆盖默认的onwindowNew操作。。点击新窗口空操作。。
+	// TODO: Add your command handler code here
+}
+
+
+void CMainFrame::OnUpdateWindowNew(CCmdUI *pCmdUI)
+{
+	pCmdUI->Enable(FALSE);
+	// TODO: Add your command update UI handler code here
+}
