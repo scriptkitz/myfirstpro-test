@@ -12,7 +12,8 @@ public:
 
 // ÊôÐÔ
 public:
-
+	CSplitterWnd m_leftWnd;
+	CSplitterWnd m_topDownWnd;
 // ²Ù×÷
 public:
 
@@ -33,4 +34,6 @@ protected:
 public:
 	virtual void ActivateFrame(int nCmdShow = -1);
 	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
+protected:
+	virtual BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext);
 };
