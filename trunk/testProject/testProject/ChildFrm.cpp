@@ -6,6 +6,8 @@
 #include "testProject.h"
 #include "testProjectView.h"
 #include "ChildFrm.h"
+#include "HexEditView.h"
+#include "LeftPanelView.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -80,10 +82,10 @@ BOOL CChildFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext)
 
 	//分割成左一列大的，右2行小的窗口。。
 	BOOL ret = m_leftWnd.CreateStatic(this,1,2);
-	m_leftWnd.CreateView(0,0,RUNTIME_CLASS(CtestProjectView),CSize(100,100),pContext);
+	m_leftWnd.CreateView(0,0,RUNTIME_CLASS(CLeftPanelView),CSize(100,100),pContext);
 	m_topDownWnd.CreateStatic(&m_leftWnd,2,1,WS_CHILD|WS_VISIBLE,m_leftWnd.IdFromRowCol(0,1));  //这里的最后一个参数是关键。表示右边一块窗口的ID。
 	m_topDownWnd.CreateView(0,0,RUNTIME_CLASS(CtestProjectView),CSize(100,100),pContext);
-	m_topDownWnd.CreateView(1,0,RUNTIME_CLASS(CtestProjectView),CSize(100,100),pContext);
+	m_topDownWnd.CreateView(1,0,RUNTIME_CLASS(CHexEditView),CSize(100,100),pContext);
 	return ret; //CMDIChildWnd::OnCreateClient(lpcs, pContext); //搞了半天SplitterWnd都不成，原来是最后一句问题。不要调用默认的OnCreateClient了。
 	//默认的OnCreateClient会调用CframeWnd的CreateView，创建一个单一的view。
 }
