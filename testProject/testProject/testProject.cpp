@@ -6,7 +6,7 @@
 #include "afxwinappex.h"
 #include "testProject.h"
 #include "MainFrm.h"
-
+#include "ProcessListDlg.h"
 #include "ChildFrm.h"
 #include "testProjectDoc.h"
 #include "testProjectView.h"
@@ -46,7 +46,6 @@ CtestProjectApp theApp;
 BOOL CtestProjectApp::InitInstance()
 {
 	CWinApp::InitInstance();
-
 	if (!AfxSocketInit())
 	{
 		AfxMessageBox(IDP_SOCKETS_INIT_FAILED);
@@ -218,6 +217,12 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 		 return false;
 	 }
 	 
+	 CProcessListDlg pdlg;
+	 if (pdlg.DoModal() == IDCANCEL)
+	 {
+		 return FALSE;
+	 }
+	 //ÔÊÐí¡£¡£¡£
 	 CButton *tbtn = new CButton();
 	CRect rc;
 	mf->m_wndDlgBar.GetClientRect(&rc);
