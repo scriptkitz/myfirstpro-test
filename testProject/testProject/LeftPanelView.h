@@ -21,6 +21,10 @@ public:
 
 protected:
 	DECLARE_MESSAGE_MAP()
+	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+public:
+	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle, const RECT& rect, CWnd* pParentWnd, UINT nID, CCreateContext* pContext = NULL);
+	virtual void OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /*pHint*/);
 };
 
 

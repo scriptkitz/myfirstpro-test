@@ -18,6 +18,7 @@ public:
 // ²Ù×÷
 public:
 	INT m_btnID;
+	DWORD m_docSelPID;
 // ÖØÐ´
 public:
 	virtual BOOL OnNewDocument();

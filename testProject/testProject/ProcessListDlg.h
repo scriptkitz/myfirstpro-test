@@ -22,6 +22,7 @@ public:
 	virtual BOOL OnInitDialog();
 	CListCtrl m_listProcessCtrl;
 	CImageList *m_imglist;
+	CString m_processName;
 	DWORD m_selPID;
 	bool InitProcessList(void);
 	afx_msg void OnBnClickedRefresh();

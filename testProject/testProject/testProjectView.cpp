@@ -15,9 +15,9 @@
 
 // CtestProjectView
 
-IMPLEMENT_DYNCREATE(CtestProjectView, CView)
+IMPLEMENT_DYNCREATE(CtestProjectView, CListView)
 
-BEGIN_MESSAGE_MAP(CtestProjectView, CView)
+BEGIN_MESSAGE_MAP(CtestProjectView, CListView)
 END_MESSAGE_MAP()
 
 // CtestProjectView 构造/析构
@@ -36,8 +36,8 @@ BOOL CtestProjectView::PreCreateWindow(CREATESTRUCT& cs)
 {
 	// TODO: 在此处通过修改
 	//  CREATESTRUCT cs 来修改窗口类或样式
-
-	return CView::PreCreateWindow(cs);
+	cs.style |= LVS_REPORT;
+	return CListView::PreCreateWindow(cs);
 }
 
 // CtestProjectView 绘制
@@ -58,12 +58,12 @@ void CtestProjectView::OnDraw(CDC* /*pDC*/)
 #ifdef _DEBUG
 void CtestProjectView::AssertValid() const
 {
-	CView::AssertValid();
+	CListView::AssertValid();
 }
 
 void CtestProjectView::Dump(CDumpContext& dc) const
 {
-	CView::Dump(dc);
+	CListView::Dump(dc);
 }
 
 CtestProjectDoc* CtestProjectView::GetDocument() const // 非调试版本是内联的
@@ -75,3 +75,29 @@ CtestProjectDoc* CtestProjectView::GetDocument() const // 非调试版本是内联的
 
 
 // CtestProjectView 消息处理程序
+
+
+void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /*pHint*/)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	
+	ASSERT(GetStyle() & LVS_REPORT);
+
+	CListCtrl& listCtrl = GetListCtrl();
+
+	// Insert a column. This override is the most convenient.
+	listCtrl.InsertColumn(0, _T("Player Name"), LVCFMT_LEFT);
+
+	// The other InsertColumn() override requires an initialized
+	// LVCOLUMN structure.
+	LVCOLUMN col;
+	col.mask = LVCF_FMT | LVCF_TEXT;
+	col.pszText = _T("Jersey Number");
+	col.fmt = LVCFMT_LEFT;
+	listCtrl.InsertColumn(1, &col);
+
+	// Set reasonable widths for our columns
+	listCtrl.SetColumnWidth(0, LVSCW_AUTOSIZE_USEHEADER);
+	listCtrl.SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
+
+}

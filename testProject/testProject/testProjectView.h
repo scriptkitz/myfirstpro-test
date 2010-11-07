@@ -6,7 +6,7 @@
 #pragma once
 
 
-class CtestProjectView : public CView
+class CtestProjectView : public CListView//CView
 {
 protected: // 仅从序列化创建
 	CtestProjectView();
@@ -38,6 +38,7 @@ protected:
 // 生成的消息映射函数
 protected:
 	DECLARE_MESSAGE_MAP()
+	virtual void OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /*pHint*/);
 };
 
 #ifndef _DEBUG  // testProjectView.cpp 中的调试版本

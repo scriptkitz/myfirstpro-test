@@ -19,7 +19,7 @@ using namespace std;
 #define MAX_DOC_CONT  10      //最多给创建几个文档啊
 #define USER_INDEX	  12340	 //tab按钮开始ID
 
-#define TAB_WIDTH     85	//。。。
+#define TAB_WIDTH     130	//。。。
 #define TAB_HEIGHT    25
 
 // CtestProjectApp:
