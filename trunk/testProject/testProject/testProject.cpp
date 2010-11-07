@@ -218,30 +218,34 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 {
 	 
 	 CMainFrame *mf = (CMainFrame*)m_pMainWnd;
-	 CString title = testDoc->GetTitle();
+	 
 	 INT docount = m_docBtnMap.size();
 	 if (docount >= MAX_DOC_CONT)
 	 {
 		 MessageBox(m_pMainWnd->GetSafeHwnd(),TEXT("不给你创建啦...哈。"),TEXT("提示温馨的"),0);
 		 return false;
 	 }
-	 if (m_docBtnMap.find(title) != m_docBtnMap.end())
-	 {
-		 return false;
-	 }
-	 
 	 CProcessListDlg pdlg;
 	 if (pdlg.DoModal() == IDCANCEL)
 	 {
 		 return FALSE;
 	 }
 	 //允许。。。
+	 testDoc->m_docSelPID = pdlg.m_selPID;
+	 testDoc->SetTitle(pdlg.m_processName);
+	 CString title = testDoc->GetTitle();
+	 if (m_docBtnMap.find(title) != m_docBtnMap.end())
+	 {
+		 return false;
+	 }
+	 
+	 
 	 CButton *tbtn = new CButton();
 	CRect rc;
 	mf->m_wndDlgBar.GetClientRect(&rc);
 	int btnid = m_validIndex[m_validIndex.size()-1];
 	testDoc->m_btnID = btnid;
-	tbtn->Create(title,WS_VISIBLE|BS_FLAT/*|BS_OWNERDRAW*/ ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
+	tbtn->Create(title,WS_VISIBLE|BS_FLAT|BS_LEFT|BS_BOTTOM/*|BS_OWNERDRAW*/ ,CRect(TAB_WIDTH*docount,rc.bottom-TAB_HEIGHT,TAB_WIDTH*(docount+1),rc.bottom),&mf->m_wndDlgBar,btnid);
 	m_validIndex.pop_back();
 	m_BtnIDOrder.push_back(title);
 	m_docBtnMap[title] = tbtn;
