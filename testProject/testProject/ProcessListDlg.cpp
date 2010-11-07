@@ -31,6 +31,7 @@ void CProcessListDlg::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CProcessListDlg, CDialogEx)
+	ON_BN_CLICKED(IDC_REFRESH, &CProcessListDlg::OnBnClickedRefresh)
 END_MESSAGE_MAP()
 
 
@@ -40,6 +41,15 @@ END_MESSAGE_MAP()
 BOOL CProcessListDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	InitProcessList();
+	
+	return TRUE;  // return TRUE unless you set the focus to a control
+	// EXCEPTION: OCX Property Pages should return FALSE
+}
+
+
+bool CProcessListDlg::InitProcessList(void)
+{
 	m_listProcessCtrl.DeleteAllItems();
 	CRect rc;
 	GetClientRect(&rc);
@@ -69,7 +79,7 @@ BOOL CProcessListDlg::OnInitDialog()
 	while(proIndex<(int)(retByte/sizeof(DWORD)))
 	{
 		procID = dwPIDs[proIndex];
-		
+
 		HANDLE hProc  = OpenProcess(PROCESS_ALL_ACCESS ,NULL,procID);
 		if(NULL==hProc)
 		{
@@ -100,7 +110,7 @@ BOOL CProcessListDlg::OnInitDialog()
 					imgindex   =   m_imglist->Add(info.hIcon);
 					DestroyIcon(info.hIcon);
 				}
-				
+
 			}
 		}
 		sproNum.Format(TEXT("%d"),proIndex);
@@ -110,7 +120,7 @@ BOOL CProcessListDlg::OnInitDialog()
 		m_listProcessCtrl.SetItemData(ind,procID);
 
 		m_listProcessCtrl.SetItemText(ind,2,sproName);
-		
+		m_listProcessCtrl.SetItemText(ind,3,sproinfo);
 
 
 
@@ -125,9 +135,15 @@ BOOL CProcessListDlg::OnInitDialog()
 			CloseHandle(hProc);
 		}
 		sproNum.Empty();
+		sproinfo.Empty();
 		proIndex++;
 	}
-	
-	return TRUE;  // return TRUE unless you set the focus to a control
-	// EXCEPTION: OCX Property Pages should return FALSE
+	return true;
+}
+
+
+void CProcessListDlg::OnBnClickedRefresh()
+{
+	// TODO: Add your control notification handler code here
+	InitProcessList();
 }

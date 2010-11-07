@@ -22,4 +22,6 @@ public:
 	virtual BOOL OnInitDialog();
 	CListCtrl m_listProcessCtrl;
 	CImageList *m_imglist;
+	bool InitProcessList(void);
+	afx_msg void OnBnClickedRefresh();
 };
