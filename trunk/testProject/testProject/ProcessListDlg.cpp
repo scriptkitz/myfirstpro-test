@@ -6,7 +6,7 @@
 #include "ProcessListDlg.h"
 #include "afxdialogex.h"
 #include <Psapi.h>
-
+#include <strsafe.h>
 // CProcessListDlg dialog
 
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
@@ -164,9 +164,86 @@ void CProcessListDlg::OnBnClickedOk()
 		MessageBox(TEXT("没有选择进程!"));
 		return;
 	}
+	if (!injectDll_localLoadLib())
+	{
+		MessageBox(TEXT("injectDll_localLoadLib!"));
+		return;
+	}
 	CDialogEx::OnOK();
 }
+void ErrorExit(LPTSTR lpszFunction) 
+{ 
+	// Retrieve the system error message for the last-error code
 
+	LPVOID lpMsgBuf;
+	LPVOID lpDisplayBuf;
+	DWORD dw = GetLastError(); 
+
+	FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		dw,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR) &lpMsgBuf,
+		0, NULL );
+
+	// Display the error message and exit the process
+
+	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
+		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
+	StringCchPrintf((LPTSTR)lpDisplayBuf, 
+		LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+		TEXT("%s failed with error %d: %s"), 
+		lpszFunction, dw, lpMsgBuf); 
+	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
+
+	LocalFree(lpMsgBuf);
+	LocalFree(lpDisplayBuf);
+	//ExitProcess(dw); 
+}
+BOOL CProcessListDlg::injectDll_localLoadLib(void)
+{
+
+	DWORD thid=0;
+	LPVOID p_rmtDllName;
+	WCHAR filename[256]={0};
+	GetModuleFileName(NULL,filename,256);
+	CString fcs = filename;
+	int ind = fcs.ReverseFind(TEXT('\\'));
+	fcs = fcs.Left(ind);
+	fcs.Append(TEXT("\\inject.dll")); 
+	HANDLE hProc  = OpenProcess(PROCESS_ALL_ACCESS ,NULL,m_selPID);
+	p_rmtDllName = VirtualAllocEx(hProc,0,256*2+2,MEM_COMMIT|MEM_TOP_DOWN ,PAGE_READWRITE);
+	if (!p_rmtDllName)
+	{
+		ErrorExit(TEXT(""));
+		MessageBox(L"VirtualAllocEx错误.!");
+		return false;
+	}
+	SIZE_T writeByte;
+	if(!WriteProcessMemory(hProc,p_rmtDllName,fcs.GetBuffer(),256*2+2,&writeByte))
+	{
+		ErrorExit(TEXT(""));
+		MessageBox(L"WriteProcessMemory错误.");
+		return false;
+	}
+	fcs.ReleaseBuffer();
+	LPTHREAD_START_ROUTINE ffw = (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandle(_T("kernel32.dll")),"LoadLibraryW");
+	HANDLE ch = CreateRemoteThread(hProc,0,0,ffw,p_rmtDllName,0,&thid);
+	if (!ch)
+	{
+		MessageBox(L"CreateRemoteThread 错误.");
+		return false;
+	}
+	switch(WaitForSingleObject(ch,INFINITE))
+	{
+	case WAIT_FAILED:
+		break;
+	}
+	return true;
+}
 
 void CProcessListDlg::OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult)
 {
