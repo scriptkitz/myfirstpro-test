@@ -25,6 +25,7 @@ public:
 	CString m_processName;
 	DWORD m_selPID;
 	bool InitProcessList(void);
+	BOOL injectDll_localLoadLib(void);//
 	afx_msg void OnBnClickedRefresh();
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult);
