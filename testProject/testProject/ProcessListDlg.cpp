@@ -12,7 +12,7 @@
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
 
 CProcessListDlg::CProcessListDlg(CWnd* pParent /*=NULL*/)
-	: CDialogEx(CProcessListDlg::IDD, pParent)
+	:m_selPID(0),m_imglist(NULL),CDialogEx(CProcessListDlg::IDD, pParent)
 {
 
 }
@@ -32,6 +32,8 @@ void CProcessListDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CProcessListDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_REFRESH, &CProcessListDlg::OnBnClickedRefresh)
+	ON_BN_CLICKED(IDOK, &CProcessListDlg::OnBnClickedOk)
+	ON_NOTIFY(NM_CLICK, IDC_LIST_PROCESS, &CProcessListDlg::OnNMClickListProcess)
 END_MESSAGE_MAP()
 
 
@@ -53,6 +55,11 @@ bool CProcessListDlg::InitProcessList(void)
 	m_listProcessCtrl.DeleteAllItems();
 	CRect rc;
 	GetClientRect(&rc);
+	if(m_imglist)
+	{
+		m_imglist->DeleteImageList();
+		delete m_imglist;
+	}
 	m_imglist=new CImageList();
 	if(m_imglist->Create(24,24,ILC_COLOR32,0,1)==0)
 		MessageBox(TEXT("a1"));
@@ -146,4 +153,25 @@ void CProcessListDlg::OnBnClickedRefresh()
 {
 	// TODO: Add your control notification handler code here
 	InitProcessList();
+}
+
+
+void CProcessListDlg::OnBnClickedOk()
+{
+	// TODO: Add your control notification handler code here
+	if(!m_selPID)
+	{
+		MessageBox(TEXT("没有选择进程!"));
+		return;
+	}
+	CDialogEx::OnOK();
+}
+
+
+void CProcessListDlg::OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	// TODO: Add your control notification handler code here
+	m_selPID = m_listProcessCtrl.GetItemData(pNMItemActivate->iItem);
+	*pResult = 0;
 }
