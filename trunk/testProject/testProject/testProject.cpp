@@ -45,6 +45,19 @@ CtestProjectApp theApp;
 
 BOOL CtestProjectApp::InitInstance()
 {
+	//程序提升权限。。。
+	HANDLE ph;
+	LUID lu;
+	OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES,&ph);
+	LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&lu);
+	TOKEN_PRIVILEGES tp;
+	tp.PrivilegeCount=1;
+	tp.Privileges[0].Luid = lu;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	AdjustTokenPrivileges(ph,false,&tp,0,0,0);
+	CloseHandle(ph);
+	//
+
 	CWinApp::InitInstance();
 	if (!AfxSocketInit())
 	{
