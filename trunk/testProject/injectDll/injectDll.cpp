@@ -9,9 +9,17 @@
 INJECTDLL_API int ninjectDll=0;
 
 // This is an example of an exported function.
-INJECTDLL_API int fninjectDll(void)
+extern "C" LRESULT CALLBACK DllHookGetMsg(int code,WPARAM wParam,LPARAM lParam)
 {
-	return 42;
+	if (code < 0)
+	{
+		return CallNextHookEx(NULL,code,wParam,lParam);
+	}
+	if (code == HC_ACTION)
+	{
+		MessageBox(NULL, TEXT("钩子target=_blank>回调函数"),TEXT("回调"), MB_OK);
+	}
+	return CallNextHookEx(NULL,code,wParam,lParam);
 }
 
 // This is the constructor of a class that has been exported.
