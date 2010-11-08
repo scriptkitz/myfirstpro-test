@@ -6,13 +6,14 @@
 #include "ProcessListDlg.h"
 #include "afxdialogex.h"
 #include <Psapi.h>
+#include <TlHelp32.h>
 #include <strsafe.h>
 // CProcessListDlg dialog
-
+#define  INJECT_DLL_NAME "inject.dll"
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
 
 CProcessListDlg::CProcessListDlg(CWnd* pParent /*=NULL*/)
-	:m_selPID(0),m_imglist(NULL),CDialogEx(CProcessListDlg::IDD, pParent)
+	:m_selPID(0),m_imglist(NULL),hookmodel(0),CDialogEx(CProcessListDlg::IDD, pParent)
 {
 
 }
@@ -34,6 +35,8 @@ BEGIN_MESSAGE_MAP(CProcessListDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_REFRESH, &CProcessListDlg::OnBnClickedRefresh)
 	ON_BN_CLICKED(IDOK, &CProcessListDlg::OnBnClickedOk)
 	ON_NOTIFY(NM_CLICK, IDC_LIST_PROCESS, &CProcessListDlg::OnNMClickListProcess)
+	ON_BN_CLICKED(IDC_RADIO_HOOK, &CProcessListDlg::OnBnClickedRadioHook)
+	ON_BN_CLICKED(IDC_RADIO_L_REMOTE, &CProcessListDlg::OnBnClickedRadioLRemote)
 END_MESSAGE_MAP()
 
 
@@ -43,6 +46,9 @@ END_MESSAGE_MAP()
 BOOL CProcessListDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	CButton* bt = (CButton*)GetDlgItem(IDC_RADIO_HOOK);
+	bt->SetCheck(true);
+	UpdateData(FALSE);
 	InitProcessList();
 	
 	return TRUE;  // return TRUE unless you set the focus to a control
@@ -53,6 +59,7 @@ BOOL CProcessListDlg::OnInitDialog()
 bool CProcessListDlg::InitProcessList(void)
 {
 	m_listProcessCtrl.DeleteAllItems();
+	m_selPID = 0;
 	CRect rc;
 	GetClientRect(&rc);
 	if(m_imglist)
@@ -164,10 +171,22 @@ void CProcessListDlg::OnBnClickedOk()
 		MessageBox(TEXT("没有选择进程!"));
 		return;
 	}
-	if (!injectDll_localLoadLib())
+	switch(hookmodel)
 	{
-		MessageBox(TEXT("injectDll_localLoadLib!"));
-		return;
+	case 0:
+		if (!injectDll_windowhook())
+		{
+			MessageBox(TEXT("injectDll_windowhook Error!"));
+			return;
+		}
+		break;
+	case 1:
+		if (!injectDll_localLoadLib())
+		{
+			MessageBox(TEXT("injectDll_localLoadLib Error!"));
+			return;
+		}
+		break;
 	}
 	CDialogEx::OnOK();
 }
@@ -213,7 +232,8 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 	CString fcs = filename;
 	int ind = fcs.ReverseFind(TEXT('\\'));
 	fcs = fcs.Left(ind);
-	fcs.Append(TEXT("\\inject.dll")); 
+	fcs.Append(TEXT("\\")); 
+	fcs.Append(TEXT(INJECT_DLL_NAME));
 	HANDLE hProc  = OpenProcess(PROCESS_ALL_ACCESS ,NULL,m_selPID);
 	p_rmtDllName = VirtualAllocEx(hProc,0,256*2+2,MEM_COMMIT|MEM_TOP_DOWN ,PAGE_READWRITE);
 	if (!p_rmtDllName)
@@ -237,14 +257,51 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 		MessageBox(L"CreateRemoteThread 错误.");
 		return false;
 	}
-	switch(WaitForSingleObject(ch,INFINITE))
-	{
-	case WAIT_FAILED:
-		break;
-	}
+	DWORD rthe = WaitForSingleObject(ch,INFINITE);
 	return true;
 }
+BOOL CProcessListDlg::injectDll_windowhook()
+{
+	// TODO: Add your control notification handler code here
 
+	HHOOK m_hook;
+	//::SetForegroundWindow(selWnd);
+	//dwThreadID = GetWindowThreadProcessId(selWnd,&dwProcessID);
+	HOOKPROC hkprcSysMsg; 
+	static HINSTANCE hinstDLL;
+	typedef   int   (CALLBACK*   LPFNDLLFUNC)(DWORD); 
+	hinstDLL = LoadLibrary(TEXT(INJECT_DLL_NAME)); 
+	if (hinstDLL == NULL)
+	{
+		ErrorExit(TEXT(""));
+		return FALSE;
+	}
+	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "DllHookGetMsg");
+	//获取指定进程ID的对应的主线程ID。
+	DWORD dwThreadID = 0;
+	THREADENTRY32 te32 = {sizeof(te32)};
+	HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD,0);
+	if( Thread32First( hThreadSnap, &te32) )
+	{
+		do{
+			if( m_selPID == te32.th32OwnerProcessID )
+			{
+				dwThreadID = te32.th32ThreadID;
+				break;
+			}
+		}while( Thread32Next( hThreadSnap, &te32) );
+	}
+
+	m_hook = SetWindowsHookEx(WH_GETMESSAGE,(HOOKPROC)hkprcSysMsg,hinstDLL,dwThreadID);
+	if (!m_hook)
+	{
+		ErrorExit(TEXT(""));
+		FreeLibrary(hinstDLL);
+		return FALSE;
+	}
+	FreeLibrary(hinstDLL);
+	return TRUE;
+}
 void CProcessListDlg::OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
@@ -252,4 +309,16 @@ void CProcessListDlg::OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult)
 	m_selPID = m_listProcessCtrl.GetItemData(pNMItemActivate->iItem);
 	m_processName = m_listProcessCtrl.GetItemText(pNMItemActivate->iItem,2);
 	*pResult = 0;
+}
+
+void CProcessListDlg::OnBnClickedRadioHook()
+{
+	// TODO: Add your control notification handler code here
+	hookmodel = 0;
+}
+
+void CProcessListDlg::OnBnClickedRadioLRemote()
+{
+	// TODO: Add your control notification handler code here
+	hookmodel = 1;
 }
