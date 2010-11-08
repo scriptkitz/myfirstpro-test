@@ -9,7 +9,7 @@
 #include <TlHelp32.h>
 #include <strsafe.h>
 // CProcessListDlg dialog
-#define  INJECT_DLL_NAME "inject.dll"
+#define  INJECT_DLL_NAME "injectDLL.dll"
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
 
 CProcessListDlg::CProcessListDlg(CWnd* pParent /*=NULL*/)

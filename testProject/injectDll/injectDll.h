@@ -11,6 +11,8 @@
 #endif
 
 // This class is exported from the injectDll.dll
+extern "C" LRESULT CALLBACK DllHookGetMsg(int code,WPARAM wParam,LPARAM lParam);
+
 class INJECTDLL_API CinjectDll {
 public:
 	CinjectDll(void);
@@ -19,4 +21,4 @@ public:
 
 extern INJECTDLL_API int ninjectDll;
 
-INJECTDLL_API int fninjectDll(void);
+
