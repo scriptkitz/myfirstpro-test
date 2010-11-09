@@ -1,0 +1,4 @@
+;LIBRARY
+;DESCRIPTION "直接在代码中用exten C __declspec(dllexport) 到处的dll名是_xxx@i 这种名字。郁闷，只好用DEF文件来导出。"
+EXPORTS
+	DllHookGetMsg @1
