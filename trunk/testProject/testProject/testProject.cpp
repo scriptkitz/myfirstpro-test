@@ -216,31 +216,31 @@ void CtestProjectApp::delDocTabBtn(CtestProjectDoc* testDoc)
 
 bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 {
-	 
-	 CMainFrame *mf = (CMainFrame*)m_pMainWnd;
-	 
-	 INT docount = m_docBtnMap.size();
-	 if (docount >= MAX_DOC_CONT)
-	 {
+	
+	CMainFrame *mf = (CMainFrame*)m_pMainWnd;
+	
+	INT docount = m_docBtnMap.size();
+	if (docount >= MAX_DOC_CONT)
+	{
 		 MessageBox(m_pMainWnd->GetSafeHwnd(),TEXT("不给你创建啦...哈。"),TEXT("提示温馨的"),0);
 		 return false;
-	 }
-	 CProcessListDlg pdlg;
-	 if (pdlg.DoModal() == IDCANCEL)
-	 {
+	}
+	CProcessListDlg pdlg;
+	if (pdlg.DoModal() == IDCANCEL)
+	{
 		 return FALSE;
-	 }
-	 //允许。。。
-	 testDoc->m_docSelPID = pdlg.m_selPID;
-	 testDoc->SetTitle(pdlg.m_processName);
-	 CString title = testDoc->GetTitle();
-	 if (m_docBtnMap.find(title) != m_docBtnMap.end())
-	 {
-		 return false;
-	 }
-	 
-	 
-	 CButton *tbtn = new CButton();
+	}
+	//允许。。。
+	CString title = pdlg.m_processName;
+	if (m_docBtnMap.find(title) != m_docBtnMap.end())
+	{
+		MessageBox(m_pMainWnd->m_hWnd,TEXT("不要重复注入!"),TEXT("警告"),0);
+		return false;
+	}
+	testDoc->m_docSelPID = pdlg.m_selPID;
+	testDoc->SetTitle(pdlg.m_processName);
+	
+	CButton *tbtn = new CButton();
 	CRect rc;
 	mf->m_wndDlgBar.GetClientRect(&rc);
 	int btnid = m_validIndex[m_validIndex.size()-1];
