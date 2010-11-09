@@ -8,8 +8,9 @@
 #include <Psapi.h>
 #include <TlHelp32.h>
 #include <strsafe.h>
+#include "define.h"
 // CProcessListDlg dialog
-#define  INJECT_DLL_NAME "injectDLL.dll"
+
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
 
 CProcessListDlg::CProcessListDlg(CWnd* pParent /*=NULL*/)
@@ -235,18 +236,16 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 	fcs.Append(TEXT("\\")); 
 	fcs.Append(TEXT(INJECT_DLL_NAME));
 	HANDLE hProc  = OpenProcess(PROCESS_ALL_ACCESS ,NULL,m_selPID);
-	p_rmtDllName = VirtualAllocEx(hProc,0,256*2+2,MEM_COMMIT|MEM_TOP_DOWN ,PAGE_READWRITE);
+	p_rmtDllName = VirtualAllocEx(hProc,0,256*2+2,MEM_COMMIT|MEM_TOP_DOWN ,PAGE_EXECUTE_READWRITE);
 	if (!p_rmtDllName)
 	{
-		ErrorExit(TEXT(""));
-		MessageBox(L"VirtualAllocEx´íÎó.!");
+		ErrorExit(TEXT("VirtualAllocEx"));
 		return false;
 	}
 	SIZE_T writeByte;
 	if(!WriteProcessMemory(hProc,p_rmtDllName,fcs.GetBuffer(),256*2+2,&writeByte))
 	{
-		ErrorExit(TEXT(""));
-		MessageBox(L"WriteProcessMemory´íÎó.");
+		ErrorExit(TEXT("WriteProcessMemory"));
 		return false;
 	}
 	fcs.ReleaseBuffer();
@@ -254,7 +253,7 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 	HANDLE ch = CreateRemoteThread(hProc,0,0,ffw,p_rmtDllName,0,&thid);
 	if (!ch)
 	{
-		MessageBox(L"CreateRemoteThread ´íÎó.");
+		ErrorExit(TEXT("CreateRemoteThread"));
 		return false;
 	}
 	DWORD rthe = WaitForSingleObject(ch,INFINITE);
@@ -269,11 +268,10 @@ BOOL CProcessListDlg::injectDll_windowhook()
 	//dwThreadID = GetWindowThreadProcessId(selWnd,&dwProcessID);
 	HOOKPROC hkprcSysMsg; 
 	static HINSTANCE hinstDLL;
-	typedef   int   (CALLBACK*   LPFNDLLFUNC)(DWORD); 
-	hinstDLL = LoadLibrary(TEXT(INJECT_DLL_NAME)); 
+	hinstDLL = LoadLibrary(TEXT(INJECT_DLL_NAME));
 	if (hinstDLL == NULL)
 	{
-		ErrorExit(TEXT(""));
+		ErrorExit(TEXT("LoadLibrary"));
 		return FALSE;
 	}
 	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "DllHookGetMsg");
@@ -295,7 +293,7 @@ BOOL CProcessListDlg::injectDll_windowhook()
 	m_hook = SetWindowsHookEx(WH_GETMESSAGE,(HOOKPROC)hkprcSysMsg,hinstDLL,dwThreadID);
 	if (!m_hook)
 	{
-		ErrorExit(TEXT(""));
+		ErrorExit(TEXT("SetWindowsHookEx"));
 		FreeLibrary(hinstDLL);
 		return FALSE;
 	}

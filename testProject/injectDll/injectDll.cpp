@@ -17,7 +17,7 @@ extern "C" LRESULT CALLBACK DllHookGetMsg(int code,WPARAM wParam,LPARAM lParam)
 	}
 	if (code == HC_ACTION)
 	{
-		MessageBox(NULL, TEXT("钩子target=_blank>回调函数"),TEXT("回调"), MB_OK);
+		//MessageBox(NULL, TEXT("钩子回调函数"),TEXT("回调"), MB_OK);
 	}
 	return CallNextHookEx(NULL,code,wParam,lParam);
 }
