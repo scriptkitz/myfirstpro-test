@@ -43,7 +43,38 @@ END_MESSAGE_MAP()
 
 // CProcessListDlg message handlers
 
+void ErrorExit(LPTSTR lpszFunction) 
+{ 
+	// Retrieve the system error message for the last-error code
 
+	LPVOID lpMsgBuf;
+	LPVOID lpDisplayBuf;
+	DWORD dw = GetLastError(); 
+
+	FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		dw,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR) &lpMsgBuf,
+		0, NULL );
+
+	// Display the error message and exit the process
+
+	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
+		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
+	StringCchPrintf((LPTSTR)lpDisplayBuf, 
+		LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+		TEXT("%s failed with error %d: %s"), 
+		lpszFunction, dw, lpMsgBuf); 
+	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
+
+	LocalFree(lpMsgBuf);
+	LocalFree(lpDisplayBuf);
+	//ExitProcess(dw); 
+}
 BOOL CProcessListDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
@@ -167,11 +198,56 @@ void CProcessListDlg::OnBnClickedRefresh()
 void CProcessListDlg::OnBnClickedOk()
 {
 	// TODO: Add your control notification handler code here
+	m_hook = 0;
 	if(!m_selPID)
 	{
 		MessageBox(TEXT("没有选择进程!"));
 		return;
 	}
+	/* //EnumProcessModules 这玩意怎么不稳定类，刚注入的dll竟然检测不到。。。只好改用toolhelp32来检测了。噶
+	HMODULE models[80];
+	DWORD ttm =0;
+	HANDLE hdp = OpenProcess(PROCESS_ALL_ACCESS,0,m_selPID);
+	DWORD ssb = sizeof(models);
+	if(EnumProcessModules(hdp,models,ssb,&ttm)==0)
+	{
+		ErrorExit(TEXT("EnumProcessModules"));
+		return;
+	}
+	TCHAR fnameb[128]={0};
+	for (int kk=0;kk<(int)ttm/sizeof(HMODULE);kk++)
+	{
+		if(GetModuleBaseName(hdp,models[kk],fnameb,128))
+		{
+			TRACE("%S\n",fnameb);
+			if (wcscmp(fnameb,TEXT(INJECT_DLL_NAME))==0)
+			{
+				MessageBox(TEXT("GAGAGA"));
+			}
+		}
+		
+	}
+	CloseHandle(hdp);
+	*/
+	MODULEENTRY32 te32 = {sizeof(te32)};
+	HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,m_selPID);
+	if ( INVALID_HANDLE_VALUE == hThreadSnap)
+	{
+		ErrorExit(TEXT("CreateToolhelp32Snapshot"));
+	}
+	if( Module32First( hThreadSnap, &te32) )
+	{
+		do{
+			if (wcscmp(te32.szModule,TEXT(INJECT_DLL_NAME))==0)
+			{
+				MessageBox(TEXT("目标进程已经注入，不要再次注入！"));
+				CloseHandle(hThreadSnap);
+				return;
+			}
+		}while( Module32Next( hThreadSnap, &te32) );
+	}
+	CloseHandle(hThreadSnap);
+	//
 	switch(hookmodel)
 	{
 	case 0:
@@ -191,38 +267,7 @@ void CProcessListDlg::OnBnClickedOk()
 	}
 	CDialogEx::OnOK();
 }
-void ErrorExit(LPTSTR lpszFunction) 
-{ 
-	// Retrieve the system error message for the last-error code
 
-	LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;
-	DWORD dw = GetLastError(); 
-
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-		FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL,
-		dw,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR) &lpMsgBuf,
-		0, NULL );
-
-	// Display the error message and exit the process
-
-	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
-		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
-	StringCchPrintf((LPTSTR)lpDisplayBuf, 
-		LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-		TEXT("%s failed with error %d: %s"), 
-		lpszFunction, dw, lpMsgBuf); 
-	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
-
-	LocalFree(lpMsgBuf);
-	LocalFree(lpDisplayBuf);
-	//ExitProcess(dw); 
-}
 BOOL CProcessListDlg::injectDll_localLoadLib(void)
 {
 
@@ -256,6 +301,7 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 		ErrorExit(TEXT("CreateRemoteThread"));
 		return false;
 	}
+	CloseHandle(hProc);
 	DWORD rthe = WaitForSingleObject(ch,INFINITE);
 	return true;
 }
@@ -263,7 +309,6 @@ BOOL CProcessListDlg::injectDll_windowhook()
 {
 	// TODO: Add your control notification handler code here
 
-	HHOOK m_hook;
 	//::SetForegroundWindow(selWnd);
 	//dwThreadID = GetWindowThreadProcessId(selWnd,&dwProcessID);
 	HOOKPROC hkprcSysMsg; 
@@ -289,7 +334,7 @@ BOOL CProcessListDlg::injectDll_windowhook()
 			}
 		}while( Thread32Next( hThreadSnap, &te32) );
 	}
-
+	CloseHandle(hThreadSnap);
 	m_hook = SetWindowsHookEx(WH_GETMESSAGE,(HOOKPROC)hkprcSysMsg,hinstDLL,dwThreadID);
 	if (!m_hook)
 	{

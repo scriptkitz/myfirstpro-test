@@ -22,7 +22,7 @@ END_MESSAGE_MAP()
 
 // CtestProjectDoc 构造/析构
 
-CtestProjectDoc::CtestProjectDoc():m_btnID(0)
+CtestProjectDoc::CtestProjectDoc():m_btnID(0),m_hook(0),m_docSelPID(0)
 {
 	// TODO: 在此添加一次性构造代码
 
@@ -31,6 +31,13 @@ CtestProjectDoc::CtestProjectDoc():m_btnID(0)
 CtestProjectDoc::~CtestProjectDoc()
 {
 	theApp.delDocTabBtn(this);
+	if (m_hook)
+	{
+		if (NULL == UnhookWindowsHookEx(m_hook))
+		{
+			MessageBox(NULL,TEXT("UnhookWindowsHookEx Error"),TEXT(""),0);
+		}
+	}
 }
 
 BOOL CtestProjectDoc::OnNewDocument()

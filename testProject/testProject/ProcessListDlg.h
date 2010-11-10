@@ -23,6 +23,7 @@ public:
 	CListCtrl m_listProcessCtrl;
 	CImageList *m_imglist;
 	CString m_processName;
+	HHOOK m_hook;
 	int hookmodel; //0-- hook api, 1-- local loadlibray careteremotethread. 2.....
 	DWORD m_selPID;
 	bool InitProcessList(void);
