@@ -304,8 +304,12 @@ void CProcessListDlg::OnNMClickListProcess(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
 	// TODO: Add your control notification handler code here
-	m_selPID = m_listProcessCtrl.GetItemData(pNMItemActivate->iItem);
-	m_processName = m_listProcessCtrl.GetItemText(pNMItemActivate->iItem,2);
+	if (pNMItemActivate->iItem >= 0)
+	{
+		m_selPID = m_listProcessCtrl.GetItemData(pNMItemActivate->iItem);
+		m_processName = m_listProcessCtrl.GetItemText(pNMItemActivate->iItem,2);
+	}
+	
 	*pResult = 0;
 }
 
