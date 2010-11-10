@@ -311,8 +311,8 @@ BOOL CProcessListDlg::injectDll_windowhook()
 
 	//::SetForegroundWindow(selWnd);
 	//dwThreadID = GetWindowThreadProcessId(selWnd,&dwProcessID);
-	HOOKPROC hkprcSysMsg; 
-	static HINSTANCE hinstDLL;
+	HOOKPROC hkprcSysMsg=NULL; 
+	static HINSTANCE hinstDLL=NULL;
 	hinstDLL = LoadLibrary(TEXT(INJECT_DLL_NAME));
 	if (hinstDLL == NULL)
 	{
@@ -320,6 +320,11 @@ BOOL CProcessListDlg::injectDll_windowhook()
 		return FALSE;
 	}
 	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "DllHookGetMsg");
+	if (hkprcSysMsg == NULL)
+	{
+		ErrorExit(TEXT("GetProcAddress"));
+		return FALSE;
+	}
 	//获取指定进程ID的对应的主线程ID。
 	DWORD dwThreadID = 0;
 	THREADENTRY32 te32 = {sizeof(te32)};
@@ -335,6 +340,11 @@ BOOL CProcessListDlg::injectDll_windowhook()
 		}while( Thread32Next( hThreadSnap, &te32) );
 	}
 	CloseHandle(hThreadSnap);
+	if (dwThreadID == 0)
+	{
+		MessageBox(TEXT("没找到目标进程的主线程ID！"));
+		return false;
+	}
 	m_hook = SetWindowsHookEx(WH_GETMESSAGE,(HOOKPROC)hkprcSysMsg,hinstDLL,dwThreadID);
 	if (!m_hook)
 	{
