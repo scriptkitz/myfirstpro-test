@@ -232,11 +232,13 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 	}
 	//允许。。。
 	CString title = pdlg.m_processName;
+	testDoc->m_hook = pdlg.m_hook;
 	if (m_docBtnMap.find(title) != m_docBtnMap.end())
 	{
-		MessageBox(m_pMainWnd->m_hWnd,TEXT("不要重复注入!"),TEXT("警告"),0);
-		return false;
+		//MessageBox(m_pMainWnd->m_hWnd,TEXT("不要重复注入!"),TEXT("警告"),0); 这里不再判断是否已经注入，根据进程名判断不准，已经在进程列表dlg判断了。
+		//return false;
 	}
+	
 	testDoc->m_docSelPID = pdlg.m_selPID;
 	testDoc->SetTitle(pdlg.m_processName);
 	

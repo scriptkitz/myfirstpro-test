@@ -21,6 +21,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	{
 	case DLL_PROCESS_ATTACH:
 		//不需要创建互斥来判断多次加载，因为不管加载多少次这里只会调用一次，第一次加载时候。。呵呵，大概吧。
+		//就算多次调用loadlibray也只会运行一次，这样就直接在这里写hookapi代码吧。
 		/* //20
 		ch = GetCurrentProcessId();//GetCurrentThreadId(); //GetCurrentProcess();
 #ifdef UNICODE
