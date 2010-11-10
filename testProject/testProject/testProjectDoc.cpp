@@ -4,8 +4,9 @@
 
 #include "stdafx.h"
 #include "testProject.h"
-
 #include "testProjectDoc.h"
+#include <TlHelp32.h>
+#include "define.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -31,12 +32,45 @@ CtestProjectDoc::CtestProjectDoc():m_btnID(0),m_hook(0),m_docSelPID(0)
 CtestProjectDoc::~CtestProjectDoc()
 {
 	theApp.delDocTabBtn(this);
-	if (m_hook)
+	if (m_hook)	//Ð¶ÔØ¹³×Ó¡£¡£¡£
 	{
 		if (NULL == UnhookWindowsHookEx(m_hook))
 		{
 			MessageBox(NULL,TEXT("UnhookWindowsHookEx Error"),TEXT(""),0);
 		}
+	}else
+	{
+		if (m_docSelPID)//Ð¶ÔØdllÄ£¿é
+		{
+			HANDLE ffm = NULL;
+			HANDLE mmp = OpenProcess(PROCESS_ALL_ACCESS ,NULL,m_docSelPID);
+			MODULEENTRY32 te32 = {sizeof(te32)};
+			HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,m_docSelPID);
+			if ( INVALID_HANDLE_VALUE == hThreadSnap)
+			{
+				ErrorExit(TEXT("CreateToolhelp32Snapshot"));
+			}
+			if( Module32First( hThreadSnap, &te32) )
+			{
+				do{
+					if (wcscmp(te32.szModule,TEXT(INJECT_DLL_NAME))==0)
+					{
+						ffm = te32.modBaseAddr;
+						break;
+					}
+				}while( Module32Next( hThreadSnap, &te32) );
+			}
+			CloseHandle(hThreadSnap);
+			LPTHREAD_START_ROUTINE ffw = (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandle(_T("kernel32.dll")),"FreeLibrary");
+			HANDLE ch = CreateRemoteThread(mmp,0,0,ffw,ffm,0,0);
+			if (!ch)
+			{
+				ErrorExit(TEXT("CreateRemoteThread"));
+			}
+
+			CloseHandle(mmp);
+		}
+		
 	}
 }
 
