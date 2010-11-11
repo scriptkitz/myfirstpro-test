@@ -12,7 +12,9 @@
 
 // This class is exported from the injectDll.dll
 extern "C" LRESULT CALLBACK DllHookGetMsg(int code,WPARAM wParam,LPARAM lParam);
-
+extern "C" void CALLBACK HandleWinEvent(HWINEVENTHOOK hook, DWORD event, HWND hwnd, 
+										LONG idObject, LONG idChild, 
+										DWORD dwEventThread, DWORD dwmsEventTime);
 class INJECTDLL_API CinjectDll {
 public:
 	CinjectDll(void);

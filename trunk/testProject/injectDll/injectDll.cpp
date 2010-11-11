@@ -4,7 +4,6 @@
 #include "stdafx.h"
 #include "injectDll.h"
 
-
 // This is an example of an exported variable
 INJECTDLL_API int ninjectDll=0;
 
@@ -20,6 +19,12 @@ extern "C" LRESULT CALLBACK DllHookGetMsg(int code,WPARAM wParam,LPARAM lParam)
 		//MessageBox(NULL, TEXT("钩子回调函数"),TEXT("回调"), MB_OK);
 	}
 	return CallNextHookEx(NULL,code,wParam,lParam);
+}
+extern "C" void CALLBACK HandleWinEvent(HWINEVENTHOOK hook, DWORD event, HWND hwnd, 
+							 LONG idObject, LONG idChild, 
+							 DWORD dwEventThread, DWORD dwmsEventTime)
+{
+
 }
 
 // This is the constructor of a class that has been exported.

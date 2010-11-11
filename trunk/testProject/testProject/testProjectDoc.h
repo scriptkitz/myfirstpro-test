@@ -19,7 +19,8 @@ public:
 public:
 	INT m_btnID;//对应app类的按钮的ID。
 	DWORD m_docSelPID; //保存选中的进程列表进程的ID。
-	HHOOK m_hook;//如果是HOOk注入方式，此值不为0。
+	HHOOK m_hook;//如果是WINDOWS HOOk注入方式，此值不为0。
+	HWINEVENTHOOK m_ehook;//EVENT HOOK...
 // 重写
 public:
 	virtual BOOL OnNewDocument();

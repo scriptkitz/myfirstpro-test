@@ -233,14 +233,21 @@ bool CtestProjectApp::addDocTabBtn(CtestProjectDoc* testDoc)
 	//允许。。。
 	CString title = pdlg.m_processName;
 	testDoc->m_hook = pdlg.m_hook;
+	testDoc->m_ehook = pdlg.m_ehook;
 	if (m_docBtnMap.find(title) != m_docBtnMap.end())
 	{
 		//MessageBox(m_pMainWnd->m_hWnd,TEXT("不要重复注入!"),TEXT("警告"),0); 这里不再判断是否已经注入，根据进程名判断不准，已经在进程列表dlg判断了。
+		//但是也不能不处理，因为m_docBtnMap的key是唯一的，title不能相同，否则会被替换掉，最后出错，所以这里吧title名字改一下。
+		do 
+		{
+			title.Append(CString("-"));
+		} while (m_docBtnMap.find(title) != m_docBtnMap.end());
+		
 		//return false;
 	}
 	
 	testDoc->m_docSelPID = pdlg.m_selPID;
-	testDoc->SetTitle(pdlg.m_processName);
+	testDoc->SetTitle(title);
 	
 	CButton *tbtn = new CButton();
 	CRect rc;

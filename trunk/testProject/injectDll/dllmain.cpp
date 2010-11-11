@@ -1,6 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 #include "detours.h"
+#include <WinSock2.h>
 /* //20
 #include <stdlib.h>
 #include <string.h>
@@ -8,20 +9,34 @@
 
 #define SIZE_BUF 28
 */
+#pragma comment(lib,"ws2_32.lib")
+
 static LONG dwSlept = 0;
 
 // Target pointer for the uninstrumented Sleep API.
-static VOID (WINAPI * TrueSleep)(DWORD dwMilliseconds) = Sleep;
+int (WSAAPI * Real_send)(SOCKET s, const char * buf, int len, int flags) = send;
+int (WSAAPI * Real_sendto)(SOCKET s, const char * buf, int len, int flags,const struct sockaddr * to, int tolen)  = sendto;
+int (WSAAPI * Real_recv)(SOCKET s, char * buf, int len, int flags) = recv;
+int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sockaddr * from, int * fromlen) = recvfrom;
 
 // Detour function that replaces the Sleep API.
-VOID WINAPI TimedSleep(DWORD dwMilliseconds)
-{
-	// Save the before and after times around calling the Sleep API.
-	DWORD dwBeg = GetTickCount();
-	TrueSleep(dwMilliseconds);
-	DWORD dwEnd = GetTickCount();
 
-	InterlockedExchangeAdd(&dwSlept, dwEnd - dwBeg);
+static int WSAAPI Catch_send(SOCKET s, const char * buf, int len, int flags)
+{
+	return Real_send(s, buf, len, flags);
+}
+static int WSAAPI Catch_sendto(SOCKET s,const char * buf, int len, int flags, const struct sockaddr * to, int tolen)
+{
+	return Real_sendto(s,buf, len, flags,to, tolen);
+}
+static int WSAAPI Catch_recv(SOCKET s, char * buf, int len, int flags)
+{
+	return recv(s, buf, len, flags);
+}
+
+static int WSAAPI Catch_recvfrom(SOCKET s,char * buf, int len, int flags,struct sockaddr * from, int * fromlen)
+{
+	return recvfrom(s, buf, len, flags, from, fromlen);
 }
 
 // DllMain function attaches and detaches the TimedSleep detour to the
@@ -64,7 +79,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		*/
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
-		DetourAttach(&(PVOID&)TrueSleep, TimedSleep);
+		DetourAttach(&(PVOID&)Real_send, Catch_send);
+		DetourAttach(&(PVOID&)Real_sendto, Catch_sendto);
+		DetourAttach(&(PVOID&)Real_recv, Catch_recv);
+		DetourAttach(&(PVOID&)Real_recvfrom, Catch_recvfrom);
 		DetourTransactionCommit();
 		break;
 	case DLL_THREAD_ATTACH:
@@ -74,7 +92,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
-		DetourDetach(&(PVOID&)TrueSleep, TimedSleep);
+		DetourDetach(&(PVOID&)Real_send, Catch_send);
+		DetourDetach(&(PVOID&)Real_sendto, Catch_sendto);
+		DetourDetach(&(PVOID&)Real_recv, Catch_recv);
+		DetourDetach(&(PVOID&)Real_recvfrom, Catch_recvfrom);
 		DetourTransactionCommit();
 		break;
 	}
