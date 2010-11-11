@@ -1,0 +1,21 @@
+1、建立win32静态库类型工程；
+
+2、删除stdafx.h和stdafx.cpp文件；
+
+3、在工程设置的C++选项的预编译头文件中取消使用预编译文件，即更改为不使用预编译头文件stdafx.h；
+
+4、在工程设置的预声明常量中加入DETOURS_X86，即设置为x86平台下编译；
+
+5、加入除detoursd.和detoursd.cpp外的所有文件；
+
+6、删除detours.cpp中的对detoursd.h的引用：include "detoursd.h",删除detours.cpp中对detoursd.h中的函数Detoured()的引用;
+
+7、进行编译。
+
+使用方法：
+
+1、将编译生成的detours.lib文件复制到detours\lib下；
+
+2、将detours\samples\下的common.mak文件中的有关detoursd.lib的引用删除；
+
+3、进行编译项目后的dll文件会比原先以动态链接库方式编译detours后的文件大许多，因为它加入了detours.lib中的引用代码，不过它再也不需要附带detoursd.dll和detours.dll文件了。
