@@ -23,7 +23,7 @@ END_MESSAGE_MAP()
 
 // CtestProjectDoc 构造/析构
 
-CtestProjectDoc::CtestProjectDoc():m_btnID(0),m_hook(0),m_docSelPID(0)
+CtestProjectDoc::CtestProjectDoc():m_btnID(0),m_hook(0),m_docSelPID(0),m_ehook(0)
 {
 	// TODO: 在此添加一次性构造代码
 
@@ -34,11 +34,15 @@ CtestProjectDoc::~CtestProjectDoc()
 	theApp.delDocTabBtn(this);
 	if (m_hook)	//卸载钩子。。。
 	{
-		if (NULL == UnhookWindowsHookEx(m_hook))
+		if (0 == UnhookWindowsHookEx(m_hook))
 		{
-			//MessageBox(NULL,TEXT("UnhookWindowsHookEx Error"),TEXT(""),0);
+			ErrorExit(TEXT("UnhookWindowsHookEx"));
 		}
-	}else
+	}else if (m_ehook)
+	{
+		UnhookWinEvent(m_ehook);
+	}
+	else
 	{
 		if (m_docSelPID)//卸载dll模块
 		{
@@ -61,13 +65,15 @@ CtestProjectDoc::~CtestProjectDoc()
 				}while( Module32Next( hThreadSnap, &te32) );
 			}
 			CloseHandle(hThreadSnap);
-			LPTHREAD_START_ROUTINE ffw = (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandle(_T("kernel32.dll")),"FreeLibrary");
-			HANDLE ch = CreateRemoteThread(mmp,0,0,ffw,ffm,0,0);
-			if (!ch)
+			if (ffm)
 			{
-				ErrorExit(TEXT("CreateRemoteThread"));
+				LPTHREAD_START_ROUTINE ffw = (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandle(_T("kernel32.dll")),"FreeLibrary");
+				HANDLE ch = CreateRemoteThread(mmp,0,0,ffw,ffm,0,0);
+				if (!ch)
+				{
+					ErrorExit(TEXT("CreateRemoteThread"));
+				}
 			}
-
 			CloseHandle(mmp);
 		}
 		

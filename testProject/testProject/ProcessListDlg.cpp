@@ -15,7 +15,7 @@
 IMPLEMENT_DYNAMIC(CProcessListDlg, CDialogEx)
 
 CProcessListDlg::CProcessListDlg(CWnd* pParent /*=NULL*/)
-	:m_selPID(0),m_imglist(NULL),hookmodel(0),CDialogEx(CProcessListDlg::IDD, pParent)
+	:m_selPID(0),m_imglist(NULL),m_ehook(0),hookmodel(0),CDialogEx(CProcessListDlg::IDD, pParent)
 {
 
 }
@@ -39,6 +39,7 @@ BEGIN_MESSAGE_MAP(CProcessListDlg, CDialogEx)
 	ON_NOTIFY(NM_CLICK, IDC_LIST_PROCESS, &CProcessListDlg::OnNMClickListProcess)
 	ON_BN_CLICKED(IDC_RADIO_HOOK, &CProcessListDlg::OnBnClickedRadioHook)
 	ON_BN_CLICKED(IDC_RADIO_L_REMOTE, &CProcessListDlg::OnBnClickedRadioLRemote)
+	ON_BN_CLICKED(IDC_RADIO_EVENT_HOOK, &CProcessListDlg::OnBnClickedRadioEventHook)
 END_MESSAGE_MAP()
 
 
@@ -211,6 +212,9 @@ void CProcessListDlg::OnBnClickedOk()
 			if (wcscmp(te32.szModule,TEXT(INJECT_DLL_NAME))==0)
 			{
 				MessageBox(TEXT("目标进程已经注入，不要再次注入！"));
+				//有个问题，当setwindowshook多个进程后，unhook某几个后，那几个并不会卸载dll，除非所以的都unhook才会一起卸载dll
+				//这个问题暂时无解。。。。锕啊啊
+
 				CloseHandle(hThreadSnap);
 				return;
 			}
@@ -229,6 +233,14 @@ void CProcessListDlg::OnBnClickedOk()
 		break;
 	case 1:
 		if (!injectDll_localLoadLib())
+		{
+			MessageBox(TEXT("injectDll_localLoadLib Error!"));
+			return;
+		}
+		break;
+	case 2:
+		MessageBox(TEXT("这种注入方式一般只有出发了某个操作才会注入.而且不保证能够正确注入.."));
+		if (!injectDll_eventhook())
 		{
 			MessageBox(TEXT("injectDll_localLoadLib Error!"));
 			return;
@@ -274,6 +286,39 @@ BOOL CProcessListDlg::injectDll_localLoadLib(void)
 	CloseHandle(hProc);
 	DWORD rthe = WaitForSingleObject(ch,INFINITE);
 	return true;
+}
+BOOL CProcessListDlg::injectDll_eventhook()
+{
+	// TODO: Add your control notification handler code here
+	
+	HOOKPROC hkprcSysMsg=NULL; 
+	static HINSTANCE hinstDLL=NULL;
+	hinstDLL = LoadLibrary(TEXT(INJECT_DLL_NAME));
+	if (hinstDLL == NULL)
+	{
+		ErrorExit(TEXT("LoadLibrary"));
+		return FALSE;
+	}
+	WINEVENTPROC HandleWinEvent;
+	HandleWinEvent = (WINEVENTPROC)GetProcAddress(hinstDLL,"HandleWinEvent");
+	if (HandleWinEvent == NULL)
+	{
+		ErrorExit(TEXT("GetProcAddress"));
+		return FALSE;
+	}
+
+	m_ehook = SetWinEventHook(
+		EVENT_SYSTEM_SOUND, EVENT_OBJECT_ACCELERATORCHANGE,  // Range of events (4 to 5).
+		hinstDLL,                                          // Handle to DLL.
+		HandleWinEvent,                                // The callback.
+		m_selPID, 0,              // Process and thread IDs of interest (0 = all)
+		WINEVENT_INCONTEXT | WINEVENT_SKIPOWNPROCESS); // Flags.
+	if (m_ehook ==0)
+	{
+		ErrorExit(TEXT("---------"));
+	}
+	FreeLibrary(hinstDLL);
+	return TRUE;
 }
 BOOL CProcessListDlg::injectDll_windowhook()
 {
@@ -348,4 +393,10 @@ void CProcessListDlg::OnBnClickedRadioLRemote()
 {
 	// TODO: Add your control notification handler code here
 	hookmodel = 1;
+}
+
+void CProcessListDlg::OnBnClickedRadioEventHook()
+{
+	// TODO: Add your control notification handler code here
+	hookmodel = 2;
 }
