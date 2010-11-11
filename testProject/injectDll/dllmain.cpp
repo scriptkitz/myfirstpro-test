@@ -31,12 +31,12 @@ static int WSAAPI Catch_sendto(SOCKET s,const char * buf, int len, int flags, co
 }
 static int WSAAPI Catch_recv(SOCKET s, char * buf, int len, int flags)
 {
-	return recv(s, buf, len, flags);
+	return Real_recv(s, buf, len, flags);
 }
 
 static int WSAAPI Catch_recvfrom(SOCKET s,char * buf, int len, int flags,struct sockaddr * from, int * fromlen)
 {
-	return recvfrom(s, buf, len, flags, from, fromlen);
+	return Real_recvfrom(s, buf, len, flags, from, fromlen);
 }
 
 // DllMain function attaches and detaches the TimedSleep detour to the
