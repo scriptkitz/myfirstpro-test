@@ -36,7 +36,7 @@ CtestProjectDoc::~CtestProjectDoc()
 	{
 		if (NULL == UnhookWindowsHookEx(m_hook))
 		{
-			MessageBox(NULL,TEXT("UnhookWindowsHookEx Error"),TEXT(""),0);
+			//MessageBox(NULL,TEXT("UnhookWindowsHookEx Error"),TEXT(""),0);
 		}
 	}else
 	{
