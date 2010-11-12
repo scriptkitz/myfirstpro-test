@@ -2,6 +2,8 @@
 #include "stdafx.h"
 #include "detours.h"
 #include <WinSock2.h>
+#include <wchar.h>
+#include <Strsafe.h>
 /* //20
 #include <stdlib.h>
 #include <string.h>
@@ -10,9 +12,18 @@
 #define SIZE_BUF 28
 */
 #pragma comment(lib,"ws2_32.lib")
-
+HANDLE hsgFile = NULL;
 static LONG dwSlept = 0;
+LPVOID lpBaseOffset =0, offsetgf=0;
+struct dataHeader
+{
+	int type; //数据类型.1:send 2:recv 3:sendto 4:recvfrom 
+	size_t size;//数据大小
+	int typeIndex;//相关类型索引.
+	int totalindex;//数据总索引
+	char* offset;//数据偏移指针地址.
 
+};
 // Target pointer for the uninstrumented Sleep API.
 int (WSAAPI * Real_send)(SOCKET s, const char * buf, int len, int flags) = send;
 int (WSAAPI * Real_sendto)(SOCKET s, const char * buf, int len, int flags,const struct sockaddr * to, int tolen)  = sendto;
@@ -23,6 +34,14 @@ int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sock
 
 static int WSAAPI Catch_send(SOCKET s, const char * buf, int len, int flags)
 {
+	struct dataHeader dh;
+	dh.type = 1;
+	dh.size = len;
+	dh.offset = (char*)offsetgf-lpBaseOffset;
+	memcpy(offsetgf,&dh,sizeof(struct dataHeader));
+	offsetgf = (char*)offsetgf + sizeof(struct dataHeader);
+	memcpy(offsetgf,buf,len);
+	offsetgf = (char*)offsetgf + len;
 	return Real_send(s, buf, len, flags);
 }
 static int WSAAPI Catch_sendto(SOCKET s,const char * buf, int len, int flags, const struct sockaddr * to, int tolen)
@@ -77,6 +96,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 			return 0;
 		}
 		*/
+		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,10240,TEXT("woleigecagaga"));
+		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
+		offsetgf = lpBaseOffset;
+		if (hsgFile == NULL)
+		{
+			MessageBox(0,TEXT(""),TEXT(""),0);
+			return false;
+		}
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		DetourAttach(&(PVOID&)Real_send, Catch_send);
@@ -97,6 +124,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		DetourDetach(&(PVOID&)Real_recv, Catch_recv);
 		DetourDetach(&(PVOID&)Real_recvfrom, Catch_recvfrom);
 		DetourTransactionCommit();
+		UnmapViewOfFile(lpBaseOffset);
+		CloseHandle(hsgFile);
 		break;
 	}
 	return TRUE;
