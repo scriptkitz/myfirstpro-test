@@ -10,7 +10,7 @@
 #include "ChildFrm.h"
 #include "testProjectDoc.h"
 #include "testProjectView.h"
-
+#include "define.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -29,9 +29,18 @@ END_MESSAGE_MAP()
 
 // CtestProjectApp 构造
 
-CtestProjectApp::CtestProjectApp()
+CtestProjectApp::CtestProjectApp():hMutex(0)
 {
-
+	if (hMutex)
+	{
+		ReleaseMutex(hMutex);
+		CloseHandle(hMutex);
+	}
+	if (hMutexDll)
+	{
+		ReleaseMutex(hMutexDll);
+		CloseHandle(hMutexDll);
+	}
 	// TODO: 在此处添加构造代码，
 	// 将所有重要的初始化放置在 InitInstance 中
 }
@@ -45,6 +54,25 @@ CtestProjectApp theApp;
 
 BOOL CtestProjectApp::InitInstance()
 {
+	//
+	TCHAR chmu[M_SIZE_SEMA]={0},ids[10]={0};
+	DWORD ch = GetCurrentProcessId();
+
+	_itow_s((int)ch,ids,10,10);
+
+	wcscat_s(chmu,M_SIZE_SEMA,TEXT(MUTEX_STRING));
+	wcscat_s(chmu,M_SIZE_SEMA,ids);
+	//
+	hMutex = CreateMutex(0,FALSE,chmu);
+	hMutexDll = CreateMutex(0,FALSE,TEXT(MUTEX_STRING));
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		CloseHandle(hMutexDll);
+		hMutex = NULL;
+		MessageBox(0,TEXT("只能运行一个实例！"),TEXT(""),0);
+		return FALSE;
+	}
+	//
 	//程序提升权限。。。
 	HANDLE ph;
 	LUID lu;
@@ -56,8 +84,7 @@ BOOL CtestProjectApp::InitInstance()
 	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 	AdjustTokenPrivileges(ph,false,&tp,0,0,0);
 	CloseHandle(ph);
-	//
-
+	
 	CWinApp::InitInstance();
 	if (!AfxSocketInit())
 	{
