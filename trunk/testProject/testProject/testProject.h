@@ -41,7 +41,10 @@ public:
 	virtual BOOL InitInstance();
 	DOCBTN_MAP 	m_docBtnMap;// 保存了一个title对应一个butn。
 	vector<int> m_validIndex;//保存可用的btnID
-	vector<CString> m_BtnIDOrder;//保存btn的顺序。。因为map无序，所以用这个保存顺序，以免显示乱。
+	vector<CString> m_BtnIDOrder;//保存btn的顺序。。因为map无序，所以用这个保存顺序，以免显示乱。;
+
+	HANDLE hMutexDll; //防止本进程loadlibrary的injectdll导致的加载一些filemapping，semaphore等冲突。
+	HANDLE hMutex;	//防止运行多个实例。。
 // 实现
 	afx_msg void OnAppAbout();
 	DECLARE_MESSAGE_MAP()

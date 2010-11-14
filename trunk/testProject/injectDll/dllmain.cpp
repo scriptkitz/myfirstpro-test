@@ -4,6 +4,8 @@
 #include <WinSock2.h>
 #include <wchar.h>
 #include <Strsafe.h>
+#include "define.h"
+#include <stdlib.h>
 /* //20
 #include <stdlib.h>
 #include <string.h>
@@ -13,17 +15,13 @@
 */
 #pragma comment(lib,"ws2_32.lib")
 HANDLE hsgFile = NULL;
-static LONG dwSlept = 0;
-LPVOID lpBaseOffset =0, offsetgf=0;
-struct dataHeader
-{
-	int type; //数据类型.1:send 2:recv 3:sendto 4:recvfrom 
-	size_t size;//数据大小
-	int typeIndex;//相关类型索引.
-	int totalindex;//数据总索引
-	char* offset;//数据偏移指针地址.
+LPVOID lpBaseOffset =0;
+int offsetgf=0;
+int totalIndex=0;
+struct dataHeader dh;//
+HANDLE writesema=0 ,readsema=0; //信号量句柄
+HANDLE hMutex = NULL;
 
-};
 // Target pointer for the uninstrumented Sleep API.
 int (WSAAPI * Real_send)(SOCKET s, const char * buf, int len, int flags) = send;
 int (WSAAPI * Real_sendto)(SOCKET s, const char * buf, int len, int flags,const struct sockaddr * to, int tolen)  = sendto;
@@ -32,30 +30,116 @@ int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sock
 
 // Detour function that replaces the Sleep API.
 
+int tt = 0;
+static void writeDataFM(SOCKET s,int method,const char* buf,int len)
+{
+	WaitForSingleObject(writesema,INFINITE);//禁止自己写
+	//MessageBox(0,TEXT("禁止自己写"),TEXT("dll"),0);
+	WaitForSingleObject(readsema,INFINITE);//禁止他读
+	//MessageBox(0,TEXT("禁止他读"),TEXT("dll"),0);
+	/*
+	wchar_t slen[10];
+	switch(method)
+	{
+	case 1:
+		tt = len;
+		_itow_s(tt,slen,10,10);
+		MessageBox(0,TEXT("send"),slen,0);
+		break;
+	case 2:
+		tt += len;
+		_itow_s(tt,slen,10,10);
+		MessageBox(0,TEXT("recv"),slen,0);
+		break;
+	case 3:
+		break;
+	case 4:
+		break;
+	}
+	*/
+	int ia = *(int*)lpBaseOffset;
+	ia++;
+	*(int*)lpBaseOffset = ia;
+	*(int*)((char*)lpBaseOffset +4) = (int)writesema;
+	ReleaseSemaphore(readsema,1,NULL);//写完了，他可以读了。释放。
+	WaitForSingleObject(writesema,INFINITE);//锁写。。挂起，等待exe来释放。
+	//MessageBox(0,TEXT("通过exe释放了一次。"),TEXT("dll"),0);
+	ReleaseSemaphore(writesema,1,NULL);
+	/*
+	totalIndex++;
+	int iRet=0;
+	dh.method = method;
+	dh.size = len;
+	dh.index = totalIndex;
+	dh.tofrom = true;
+	//=================
+	int namelen = sizeof(sockaddr_in);
+	iRet = getsockname( s, (sockaddr*)&dh.localsock, &namelen );//获取本机IP和端口..
+	if ( iRet != SOCKET_ERROR )
+	{
+		int sockType = 0;
+		int optlen = 4;
+		iRet = getsockopt( s, SOL_SOCKET, SO_TYPE, (char*)&sockType, &optlen );//获取链接类型
+		dh.sockType = sockType;
+		//+++++++++++ 显示Socket的进程ID、端口、类型、目的IP和端口 ++++++++++++
+		int peernamelen = sizeof(sockaddr_in);
+		iRet = getpeername( s, (sockaddr*)&dh.remotesock, &peernamelen );//获取目的IP和端口..
+	}
+	//===================
+	dh.offset = offsetgf+sizeof(struct dataHeader);
+	
+	dh.threadID = GetCurrentThreadId();
+	memcpy(LPVOID(offsetgf + (char*)lpBaseOffset),&dh,sizeof(struct dataHeader));
+
+	offsetgf = offsetgf + sizeof(struct dataHeader);
+
+	memcpy(LPVOID(offsetgf+(char*)lpBaseOffset),buf,len);
+
+	offsetgf = offsetgf + len;
+	*(int*)(offsetgf+(char*)lpBaseOffset) = -1;
+	
+	ReleaseSemaphore(hos,1,NULL);
+	CloseHandle(hos);
+	int count = 100;
+	while(1)
+	{
+		HANDLE hos = OpenSemaphore(SEMAPHORE_ALL_ACCESS,false,TEXT(MYSTRING));
+		WaitForSingleObject(hos,INFINITE);
+		memcpy(&dh,LPVOID((char*)lpBaseOffset + (offsetgf - sizeof(struct dataHeader) -len) ),sizeof(struct dataHeader));
+		if ((dh.index == totalIndex+1 && dh.tofrom == false)|| count==0)
+		{
+			offsetgf = offsetgf -dh.size -  sizeof(struct dataHeader);
+			ReleaseSemaphore(hos,1,NULL);
+			CloseHandle(hos);
+			break;
+		}
+		ReleaseSemaphore(hos,1,NULL);
+		CloseHandle(hos);
+	}
+	*/
+}
 static int WSAAPI Catch_send(SOCKET s, const char * buf, int len, int flags)
 {
-	struct dataHeader dh;
-	dh.type = 1;
-	dh.size = len;
-	dh.offset = (char*)offsetgf-lpBaseOffset;
-	memcpy(offsetgf,&dh,sizeof(struct dataHeader));
-	offsetgf = (char*)offsetgf + sizeof(struct dataHeader);
-	memcpy(offsetgf,buf,len);
-	offsetgf = (char*)offsetgf + len;
+	writeDataFM(s,1,buf,len);
 	return Real_send(s, buf, len, flags);
 }
 static int WSAAPI Catch_sendto(SOCKET s,const char * buf, int len, int flags, const struct sockaddr * to, int tolen)
 {
+	writeDataFM(s,3,buf,len);
 	return Real_sendto(s,buf, len, flags,to, tolen);
 }
 static int WSAAPI Catch_recv(SOCKET s, char * buf, int len, int flags)
 {
-	return Real_recv(s, buf, len, flags);
+	int retlen = Real_recv(s, buf, len, flags);
+	writeDataFM(s,2,buf,retlen);
+	return retlen;
 }
 
 static int WSAAPI Catch_recvfrom(SOCKET s,char * buf, int len, int flags,struct sockaddr * from, int * fromlen)
 {
-	return Real_recvfrom(s, buf, len, flags, from, fromlen);
+	int retlen = Real_recvfrom(s, buf, len, flags, from, fromlen);
+	writeDataFM(s,4,buf,retlen);
+	return retlen;
 }
 
 // DllMain function attaches and detaches the TimedSleep detour to the
@@ -68,40 +152,48 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                        LPVOID lpReserved
 					 )
 {
-	/* //20
 	DWORD ch;
-	TCHAR chmu[SIZE_BUF]={0};
-	static HANDLE hMutex = NULL;
-	*/
+	TCHAR chmu[M_SIZE_SEMA]={0},ids[10]={0};
+	
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		//不需要创建互斥来判断多次加载，因为不管加载多少次这里只会调用一次，第一次加载时候。。呵呵，大概吧。
-		//就算多次调用loadlibray也只会运行一次，这样就直接在这里写hookapi代码吧。
-		/* //20
-		ch = GetCurrentProcessId();//GetCurrentThreadId(); //GetCurrentProcess();
-#ifdef UNICODE
-		_itow_s((int)ch,chmu,SIZE_BUF,10);
-#else
-		_itoa_s((int)ch,chmu,SIZE_BUF,10);
-#endif
-		GetModuleHandle(NULL);
-		wcscat_s(chmu,SIZE_BUF,TEXT(MYSTRING));
-		MessageBox(0,chmu,TEXT(""),0);
+		//多一个进程运行多次loadlibrary，也只会运行一次DLL_PROCESS_ATTACH。如果已经加载就不会运行这里了。
+		//判断一下是否为exe程序调用的loadlibrary调用的代码。是的话就不再创建filemapping等。;
+		ch = GetCurrentProcessId();
+
+		_itow_s((int)ch,ids,10,10);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(MUTEX_STRING));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);
+		//MessageBox(0,chmu,TEXT(""),0);
 		hMutex = CreateMutex(0,FALSE,chmu);
 		if (GetLastError() == ERROR_ALREADY_EXISTS)
 		{
+			ReleaseMutex(hMutex);
 			CloseHandle(hMutex);
 			hMutex = NULL;
-			return 0;
+			MessageBox(0,TEXT("EXE中的loadlibrary！"),chmu,0);
+			return TRUE;
 		}
-		*/
-		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,10240,TEXT("woleigecagaga"));
+		
+		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,TEXT("woleigecagaga"));
 		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
-		offsetgf = lpBaseOffset;
+		//
+		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。;
+		memset(chmu,0,M_SIZE_SEMA);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);	
+		writesema = CreateSemaphore(NULL,1,1,chmu);
+
+		memset(chmu,0,M_SIZE_SEMA);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(READ_SEMAPHORE));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);	
+		readsema =  CreateSemaphore(NULL,1,1,chmu);
+
+		//MessageBox(0,chmu,TEXT("bbbbbbbbbbbbb"),0);
 		if (hsgFile == NULL)
 		{
-			MessageBox(0,TEXT(""),TEXT(""),0);
+			MessageBox(0,TEXT("CreateFileMapping"),TEXT("error"),0);
 			return false;
 		}
 		DetourTransactionBegin();
@@ -124,8 +216,29 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		DetourDetach(&(PVOID&)Real_recv, Catch_recv);
 		DetourDetach(&(PVOID&)Real_recvfrom, Catch_recvfrom);
 		DetourTransactionCommit();
-		UnmapViewOfFile(lpBaseOffset);
-		CloseHandle(hsgFile);
+		if (hMutex)
+		{
+			ReleaseMutex(hMutex);
+			CloseHandle(hMutex);
+		}
+		if (writesema)
+		{
+			ReleaseSemaphore(writesema,1,NULL);
+			CloseHandle(writesema);
+		}
+		if (readsema)
+		{
+			ReleaseSemaphore(readsema,1,NULL);
+			CloseHandle(readsema);
+		}
+		if (lpBaseOffset)
+		{
+			UnmapViewOfFile(lpBaseOffset);
+		}
+		if (hsgFile)
+		{
+			CloseHandle(hsgFile);
+		}
 		break;
 	}
 	return TRUE;
