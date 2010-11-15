@@ -7,12 +7,13 @@
 
 #pragma once
 
-#define M_SIZE_SEMA 50
-#define  MAPPINGFILESIZE 1024*100
-#define  INJECT_DLL_NAME "injectDLL.dll"
-#define READ_SEMAPHORE   "z_j_2010_dll_scriptkit_read"
-#define WRITE_SEMAPHORE  "z_j_2010_dll_scriptkit_write"
-#define MUTEX_STRING "Z_J_exe_2010_mutex_kk"
+#define M_SIZE_SEMA 50 //信号量字符串长度;
+#define  MAPPINGFILESIZE 1024*100 //createfilemapping大小;
+#define  INJECT_DLL_NAME "injectDLL.dll" //dll文件名；
+#define READ_SEMAPHORE   "z_j_2010_dll_scriptkit_read"  //读信号量；
+#define WRITE_SEMAPHORE  "z_j_2010_dll_scriptkit_write" //写信号量；
+#define MUTEX_STRING "Z_J_exe_2010_mutex_kk"	//互斥量
+#define FILE_MAPPING_STRING "zj_file_mapping_"
 struct dataHeader
 {
 	bool tofrom;//true to exe,false to dll

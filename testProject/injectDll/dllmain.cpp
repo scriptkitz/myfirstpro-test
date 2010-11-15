@@ -33,9 +33,15 @@ int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sock
 int tt = 0;
 static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 {
-	WaitForSingleObject(writesema,INFINITE);//禁止自己写
+	if( WAIT_FAILED == WaitForSingleObject(writesema,INFINITE))//禁止自己写
+	{
+		ErrorExit(TEXT("WaitForSingleObject writesema"));
+	}
 	//MessageBox(0,TEXT("禁止自己写"),TEXT("dll"),0);
-	WaitForSingleObject(readsema,INFINITE);//禁止他读
+	if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
+	{
+		ErrorExit(TEXT("WaitForSingleObject readsema"));
+	}
 	//MessageBox(0,TEXT("禁止他读"),TEXT("dll"),0);
 	/*
 	wchar_t slen[10];
@@ -61,10 +67,19 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 	ia++;
 	*(int*)lpBaseOffset = ia;
 	*(int*)((char*)lpBaseOffset +4) = (int)writesema;
-	ReleaseSemaphore(readsema,1,NULL);//写完了，他可以读了。释放。
-	WaitForSingleObject(writesema,INFINITE);//锁写。。挂起，等待exe来释放。
+	if(ReleaseSemaphore(readsema,1,NULL)==0)//写完了，他可以读了。释放。
+	{
+		ErrorExit(TEXT("ReleaseSemaphore readsema"));
+	}
+	if(WAIT_FAILED == WaitForSingleObject(writesema,INFINITE))//锁写。。挂起，等待exe来释放。
+	{
+		ErrorExit(TEXT("WaitForSingleObject writesema2"));
+	}
 	//MessageBox(0,TEXT("通过exe释放了一次。"),TEXT("dll"),0);
-	ReleaseSemaphore(writesema,1,NULL);
+	if(0==ReleaseSemaphore(writesema,1,NULL))
+	{
+		ErrorExit(TEXT("ReleaseSemaphore writesema"));
+	}
 	/*
 	totalIndex++;
 	int iRet=0;
@@ -172,11 +187,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 			ReleaseMutex(hMutex);
 			CloseHandle(hMutex);
 			hMutex = NULL;
-			MessageBox(0,TEXT("EXE中的loadlibrary！"),chmu,0);
+			//MessageBox(0,TEXT("EXE中的loadlibrary！"),chmu,0);
 			return TRUE;
 		}
-		
-		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,TEXT("woleigecagaga"));
+		memset(chmu,0,M_SIZE_SEMA);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(FILE_MAPPING_STRING));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);	
+		//MessageBox(0,chmu,TEXT("CreateFileMapping"),0);
+		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,chmu);
 		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
 		//
 		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。;
