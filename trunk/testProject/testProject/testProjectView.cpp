@@ -59,9 +59,14 @@ CtestProjectView::~CtestProjectView()
 }
 DWORD WINAPI ThreadProc(LPVOID lpParameter)
 {
-	Sleep(1000);
+	
 	CtestProjectView* pv = (CtestProjectView*)lpParameter;
 	DWORD pid = pv->GetDocument()->m_docSelPID;
+	if(WaitForSingleObject(pv->readsema,INFINITE)==WAIT_FAILED)
+	{
+		ErrorExit(TEXT("WaitForSingleObject"));
+		return 0;
+	}
 	HANDLE hdr = OpenProcess(PROCESS_ALL_ACCESS,NULL,pid);
 	CListCtrl& listCtrl = pv->GetListCtrl();
 	int ta = 0,err =0,la =0;
@@ -91,28 +96,30 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 		if (la != ta)
 		{
 			wchar_t bu[50]={0};
+			/*
 			if (!tarhd)
 			{
 				//static HANDLE tarhd=0;//这里变量声明这样导致了一个郁闷的错误，加载一个进程没问题，第二时候会导致锁死，最终原因就是这个变量，staic了。擦。闷。已经放上边了，并去掉了static；
-				if(DuplicateHandle(hdr,hd,GetCurrentProcess(),&tarhd,0, FALSE, DUPLICATE_SAME_ACCESS)==0)
+				if(DuplicateHandle(hdr,hd,GetCurrentProcess(),&tarhd,0, FALSE, DUPLICATE_SAME_ACCESS)==0)// 啊哈，没必要复制目标的句柄啦，因为创建的是有名字的信号量，全局的，所以直接用自己的句柄释放一样的。
 				{
 					ErrorExit(TEXT("DuplicateHandle"));
 				}
 			}
-			swprintf_s(bu,50,TEXT("index:%d handle:%d duplicateH:%d"),la,hd,tarhd);
+			*/
+			swprintf_s(bu,50,TEXT("index:%d handle:%d"),la,hd);
 			listCtrl.InsertItem(0,bu);
 			//MessageBox(0,TEXT("aaaaaaaaaaaaaaa"),TEXT(""),0);
-			if(ReleaseSemaphore(tarhd,1,NULL)==0)
+			if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
 			{
 				ErrorExit(TEXT("ReleaseSemaphore1"));
 			}
 
 			ta = la;
 		}
-		if(ReleaseSemaphore(pv->readsema,1,NULL)==0)
-		{
-			ErrorExit(TEXT("ReleaseSemaphore2"));
-		}
+		//if(ReleaseSemaphore(pv->readsema,1,NULL)==0)
+		//{
+		//	ErrorExit(TEXT("ReleaseSemaphore2"));
+		//}
 	}
 
 	
@@ -211,6 +218,7 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 		wcscat_s(chmu,M_SIZE_SEMA,TEXT(READ_SEMAPHORE));
 		wcscat_s(chmu,M_SIZE_SEMA,ids);
 		readsema =  CreateSemaphore(NULL,1,1,chmu);
+		//readsema = OpenSemaphore(SEMAPHORE_ALL_ACCESS,NULL,chmu);
 		//MessageBox(chmu,TEXT("bbbbbbbbbbbbb"),0);
 		hthread = CreateThread(NULL,NULL,ThreadProc,this,0,0);
 	}

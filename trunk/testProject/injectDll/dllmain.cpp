@@ -38,11 +38,7 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 		ErrorExit(TEXT("WaitForSingleObject writesema"));
 	}
 	//MessageBox(0,TEXT("禁止自己写"),TEXT("dll"),0);
-	if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
-	{
-		ErrorExit(TEXT("WaitForSingleObject readsema"));
-	}
-	//MessageBox(0,TEXT("禁止他读"),TEXT("dll"),0);
+
 	/*
 	wchar_t slen[10];
 	switch(method)
@@ -75,11 +71,19 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 	{
 		ErrorExit(TEXT("WaitForSingleObject writesema2"));
 	}
+	//if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
+	//{
+	//	ErrorExit(TEXT("WaitForSingleObject readsema"));
+	//}
+
+	//MessageBox(0,TEXT("禁止他读"),TEXT("dll"),0);
+
 	//MessageBox(0,TEXT("通过exe释放了一次。"),TEXT("dll"),0);
 	if(0==ReleaseSemaphore(writesema,1,NULL))
 	{
 		ErrorExit(TEXT("ReleaseSemaphore writesema"));
 	}
+
 	/*
 	totalIndex++;
 	int iRet=0;
@@ -175,6 +179,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_ATTACH:
 		//多一个进程运行多次loadlibrary，也只会运行一次DLL_PROCESS_ATTACH。如果已经加载就不会运行这里了。
 		//判断一下是否为exe程序调用的loadlibrary调用的代码。是的话就不再创建filemapping等。;
+		Sleep(500);
 		ch = GetCurrentProcessId();
 
 		_itow_s((int)ch,ids,10,10);
