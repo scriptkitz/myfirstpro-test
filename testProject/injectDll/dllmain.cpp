@@ -21,6 +21,7 @@ int totalIndex=0;
 struct dataHeader dh;//
 HANDLE writesema=0 ,readsema=0; //信号量句柄
 HANDLE hMutex = NULL;
+int exitprosng = 0;
 
 // Target pointer for the uninstrumented Sleep API.
 int (WSAAPI * Real_send)(SOCKET s, const char * buf, int len, int flags) = send;
@@ -33,6 +34,10 @@ int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sock
 int tt = 0;
 static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 {
+	if (exitprosng)
+	{
+		return;
+	}
 	if( WAIT_FAILED == WaitForSingleObject(writesema,INFINITE))//禁止自己写
 	{
 		ErrorExit(TEXT("WaitForSingleObject writesema"));
@@ -73,6 +78,16 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 	}
 	//下面写读代码。。那边已经回写了数据。。。噶了个噶。。。
 	int bbt = *(int*)((char*)lpBaseOffset +8);
+	if (bbt == -1)
+	{
+		//标志exe退出注入了。。；
+		if(0==ReleaseSemaphore(writesema,1,NULL))
+		{
+			ErrorExit(TEXT("ReleaseSemaphore writesema2"));
+		}
+		exitprosng = 1;
+		return;
+	}
 	*(int*)((char*)lpBaseOffset +8) = bbt+1;
 	//if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
 	//{
@@ -84,7 +99,7 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 	//MessageBox(0,TEXT("通过exe释放了一次。"),TEXT("dll"),0);
 	if(0==ReleaseSemaphore(writesema,1,NULL))
 	{
-		ErrorExit(TEXT("ReleaseSemaphore writesema"));
+		ErrorExit(TEXT("ReleaseSemaphore writesema2"));
 	}
 
 	/*

@@ -46,6 +46,8 @@ protected:
 protected:
 	DECLARE_MESSAGE_MAP()
 	virtual void OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /*pHint*/);
+public:
+	afx_msg void OnDestroy();
 };
 
 #ifndef _DEBUG  // testProjectView.cpp 中的调试版本

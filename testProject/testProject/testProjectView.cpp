@@ -20,6 +20,7 @@ static char szSockType[6][6] = { "NUL", "TCP", "UDP", "RAW", "RDM", "SEQ" };
 IMPLEMENT_DYNCREATE(CtestProjectView, CListView)
 
 BEGIN_MESSAGE_MAP(CtestProjectView, CListView)
+	ON_WM_DESTROY()
 END_MESSAGE_MAP()
 
 // CtestProjectView 构造/析构
@@ -36,15 +37,15 @@ CtestProjectView::CtestProjectView():hthread(0)
 
 CtestProjectView::~CtestProjectView()
 {
-	m_exitproc = 1;
 	if (readsema)
 	{
 		ReleaseSemaphore(readsema,1,NULL);
 		CloseHandle(readsema);
 	}
-	if (readsema)
+	
+	if (writesema)
 	{
-		ReleaseSemaphore(writesema,1,NULL);
+		ReleaseSemaphore(writesema,1,NULL);//没用到：WaitForSingleObject(writesema)所以。不要release不让dll出错298
 		CloseHandle(writesema);
 	}
 	if (lpBaseOffset)
@@ -79,21 +80,10 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 			ErrorExit(TEXT("WaitForSingleObject"));
 			return 0;
 		}
-		if (pv->m_exitproc != 1 && pv->m_exitproc != 0)
-		{
-			return 0;
-		}
-		try
-		{
-			la = *(int*)pv->lpBaseOffset;
-			hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
-			ddt = *(int*)((char*)pv->lpBaseOffset+8);
-		}
-		catch (CException* e)
-		{
-			return 0;
-		}
-		
+
+		la = *(int*)pv->lpBaseOffset;
+		hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
+
 		if (la != ta)
 		{
 			wchar_t bu[50]={0};
@@ -109,8 +99,19 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 			*/
 			swprintf_s(bu,50,TEXT("index:%d handle:%d ddt:%d"),la,hd,ddt);
 			listCtrl.InsertItem(0,bu);
-			//在下面写入数据，回写吧，让dll读的数据。
-			*(int*)((char*)pv->lpBaseOffset+8) = ddt-5;
+			//在下面写入数据，回写吧，让dll读的数据。;
+			if (pv->m_exitproc == 1)
+			{
+				//如果线程要退出。。。通知dll也要退出啦。。。；写入数据来通知dll。。唉。；
+
+				*(int*)((char*)pv->lpBaseOffset+8) = -1;
+				if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
+				{
+					ErrorExit(TEXT("ReleaseSemaphore1"));
+				}
+				return 0;
+			}
+			*(int*)((char*)pv->lpBaseOffset+8) = la;
 			//MessageBox(0,TEXT("aaaaaaaaaaaaaaa"),TEXT(""),0);
 			if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
 			{
@@ -225,4 +226,35 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 		//MessageBox(chmu,TEXT("bbbbbbbbbbbbb"),0);
 		hthread = CreateThread(NULL,NULL,ThreadProc,this,0,0);
 	}
+}
+
+
+void CtestProjectView::OnDestroy()
+{
+	DWORD dwRet = 0;
+	MSG msg;
+	// 唉，看来也不能放这个函数里，这个只有active的view才会响应这个onDestroy。后台的视图类都不会调用。擦。
+	m_exitproc = 1;
+	while (TRUE)
+	{
+		//wait for m_hThread to be over，and wait for
+		//QS_ALLINPUT（Any message is in the queue）
+		dwRet = MsgWaitForMultipleObjects (1, &hthread,   FALSE, INFINITE, QS_ALLINPUT);
+		switch(dwRet)
+		{
+		case WAIT_OBJECT_0: 
+			break; //break the loop
+		case WAIT_OBJECT_0 + 1:
+			//get the message from Queue
+			//and dispatch it to specific window
+			PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+			DispatchMessage(&msg);
+			continue;
+		default:
+			break; // unexpected failure
+		}
+		break;
+	}
+	CListView::OnDestroy();
+	// TODO: Add your message handler code here
 }
