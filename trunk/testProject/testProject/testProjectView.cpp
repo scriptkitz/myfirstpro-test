@@ -28,48 +28,75 @@ CtestProjectView::CtestProjectView():hthread(0)
 {
 	// TODO: 在此处添加构造代码；
 	m_exitproc = 0;
+	readsema = 0;
+	writesema = 0;
+	lpBaseOffset = 0;
+	hsgFile = 0;
 }
 
 CtestProjectView::~CtestProjectView()
 {
 	m_exitproc = 1;
-	//Sleep(1000);
-	ReleaseSemaphore(readsema,1,NULL);
-	CloseHandle(readsema);
-	UnmapViewOfFile(lpBaseOffset);
-	CloseHandle(hsgFile);
+	if (readsema)
+	{
+		ReleaseSemaphore(readsema,1,NULL);
+		CloseHandle(readsema);
+	}
+	if (readsema)
+	{
+		ReleaseSemaphore(writesema,1,NULL);
+		CloseHandle(writesema);
+	}
+	if (lpBaseOffset)
+	{
+		UnmapViewOfFile(lpBaseOffset);
+	}
+	if (hsgFile)
+	{
+		CloseHandle(hsgFile);
+	}
+	
 }
 DWORD WINAPI ThreadProc(LPVOID lpParameter)
 {
 	Sleep(1000);
 	CtestProjectView* pv = (CtestProjectView*)lpParameter;
-	HANDLE hdr = OpenProcess(PROCESS_ALL_ACCESS,NULL, pv->GetDocument()->m_docSelPID);
+	DWORD pid = pv->GetDocument()->m_docSelPID;
+	HANDLE hdr = OpenProcess(PROCESS_ALL_ACCESS,NULL,pid);
 	CListCtrl& listCtrl = pv->GetListCtrl();
-	int ta = 0,err =0;
+	int ta = 0,err =0,la =0;
+	HANDLE hd=0;
+	HANDLE tarhd=0;
 	while(1)
 	{
-		//pv->readsema = OpenSemaphore(SEMAPHORE_ALL_ACCESS,false,TEXT(READ_SEMAPHORE));
-		if (pv->m_exitproc)
+		if(WaitForSingleObject(pv->readsema,INFINITE)==WAIT_FAILED)
 		{
-			//这里何时退出线程是个问题。。。。。再想想。；
+			ErrorExit(TEXT("WaitForSingleObject"));
 			return 0;
 		}
-		WaitForSingleObject(pv->readsema,INFINITE);
-		int la = *(int*)pv->lpBaseOffset;
-		HANDLE hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
+		if (pv->m_exitproc != 1 && pv->m_exitproc != 0)
+		{
+			return 0;
+		}
+		try
+		{
+			la = *(int*)pv->lpBaseOffset;
+			hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
+		}
+		catch (CException* e)
+		{
+			return 0;
+		}
+		
 		if (la != ta)
 		{
 			wchar_t bu[50]={0};
-			
-			static HANDLE tarhd=0;
 			if (!tarhd)
 			{
+				//static HANDLE tarhd=0;//这里变量声明这样导致了一个郁闷的错误，加载一个进程没问题，第二时候会导致锁死，最终原因就是这个变量，staic了。擦。闷。已经放上边了，并去掉了static；
 				if(DuplicateHandle(hdr,hd,GetCurrentProcess(),&tarhd,0, FALSE, DUPLICATE_SAME_ACCESS)==0)
 				{
-					wchar_t dd[5];
-					err = GetLastError();
-					_itow_s(err,dd,5,10);
-					MessageBox(0,TEXT("DuplicateHandle"),dd,0);
+					ErrorExit(TEXT("DuplicateHandle"));
 				}
 			}
 			swprintf_s(bu,50,TEXT("index:%d handle:%d duplicateH:%d"),la,hd,tarhd);
@@ -77,18 +104,15 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 			//MessageBox(0,TEXT("aaaaaaaaaaaaaaa"),TEXT(""),0);
 			if(ReleaseSemaphore(tarhd,1,NULL)==0)
 			{
-				err = GetLastError();
-				MessageBox(0,TEXT("ReleaseSemaphore"),TEXT("1"),0);
+				ErrorExit(TEXT("ReleaseSemaphore1"));
 			}
 
 			ta = la;
 		}
 		if(ReleaseSemaphore(pv->readsema,1,NULL)==0)
 		{
-			err = GetLastError();
-			MessageBox(0,TEXT("ReleaseSemaphore"),TEXT("22222"),0);
+			ErrorExit(TEXT("ReleaseSemaphore2"));
 		}
-		//CloseHandle(pv->readsema);
 	}
 
 	
@@ -98,11 +122,6 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 BOOL CtestProjectView::PreCreateWindow(CREATESTRUCT& cs)
 {
 	// TODO: 在此处通过修改
-	
-
-	hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,TEXT("woleigecagaga"));
-	lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
-
 	totalIndex =0;
 	offsetgf =0;
 	//  CREATESTRUCT cs 来修改窗口类或样式
@@ -177,6 +196,13 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 		memset(ids,0,10);
 		_itow_s((int)ch,ids,10,10);
 
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(FILE_MAPPING_STRING));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);
+	//	MessageBox(chmu,TEXT("CreateFileMapping"),0);
+		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,chmu);
+		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
+
+		memset(chmu,0,M_SIZE_SEMA);
 		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。
 		wcscat_s(chmu,M_SIZE_SEMA,ids);
 		writesema = CreateSemaphore(NULL,1,1,chmu);
