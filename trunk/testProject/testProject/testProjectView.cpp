@@ -69,7 +69,7 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	}
 	HANDLE hdr = OpenProcess(PROCESS_ALL_ACCESS,NULL,pid);
 	CListCtrl& listCtrl = pv->GetListCtrl();
-	int ta = 0,err =0,la =0;
+	int ta = 0,err =0,la =0,ddt=0;
 	HANDLE hd=0;
 	HANDLE tarhd=0;
 	while(1)
@@ -87,6 +87,7 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 		{
 			la = *(int*)pv->lpBaseOffset;
 			hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
+			ddt = *(int*)((char*)pv->lpBaseOffset+8);
 		}
 		catch (CException* e)
 		{
@@ -106,8 +107,10 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 				}
 			}
 			*/
-			swprintf_s(bu,50,TEXT("index:%d handle:%d"),la,hd);
+			swprintf_s(bu,50,TEXT("index:%d handle:%d ddt:%d"),la,hd,ddt);
 			listCtrl.InsertItem(0,bu);
+			//在下面写入数据，回写吧，让dll读的数据。
+			*(int*)((char*)pv->lpBaseOffset+8) = ddt-5;
 			//MessageBox(0,TEXT("aaaaaaaaaaaaaaa"),TEXT(""),0);
 			if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
 			{

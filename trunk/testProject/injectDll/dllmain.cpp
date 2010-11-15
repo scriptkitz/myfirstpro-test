@@ -71,6 +71,9 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 	{
 		ErrorExit(TEXT("WaitForSingleObject writesema2"));
 	}
+	//下面写读代码。。那边已经回写了数据。。。噶了个噶。。。
+	int bbt = *(int*)((char*)lpBaseOffset +8);
+	*(int*)((char*)lpBaseOffset +8) = bbt+1;
 	//if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
 	//{
 	//	ErrorExit(TEXT("WaitForSingleObject readsema"));
