@@ -39,11 +39,14 @@ CtestProjectView::~CtestProjectView()
 {
 	DWORD dwRet = 0;
 	MSG msg;
-	
 	m_exitproc = 2;
-	if(ReleaseSemaphore(exesema,1,NULL)==0)
+	
+	if(ReleaseSemaphore(exesema,1,NULL)!=0)
 	{
-		ErrorExit(TEXT("~~~~ReleaseSemaphore exesema"));
+		if(WaitForSingleObject(exitsema,INFINITE)==WAIT_FAILED)
+		{
+			ErrorExit(TEXT("WaitForSingleObject"));
+		}
 	}
 	while (TRUE)
 	{
@@ -65,12 +68,17 @@ CtestProjectView::~CtestProjectView()
 		}
 		break;
 	}
+	/*
+	if (exitsema)
+	{
+		ReleaseSemaphore(exitsema,1,NULL);
+		CloseHandle(exitsema);
+	}
 	if (exesema)
 	{
 		ReleaseSemaphore(exesema,1,NULL);
 		CloseHandle(exesema);
 	}
-	
 	if (cursocktsema)
 	{
 		ReleaseSemaphore(cursocktsema,1,NULL);//没用到：WaitForSingleObject(cursocktsema)所以。不要release不让dll出错298
@@ -84,7 +92,7 @@ CtestProjectView::~CtestProjectView()
 	{
 		CloseHandle(hsgFile);
 	}
-	
+	*/
 }
 DWORD WINAPI ThreadProc(LPVOID lpParameter)
 {
@@ -92,7 +100,7 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	CtestProjectView* pv = (CtestProjectView*)lpParameter;
 	DWORD pid = pv->GetDocument()->m_docSelPID;
 
-	//医生来了，挂牌“出诊”。。；//0表示医生临时不在 1表示医生在，2表示医院要关门。
+	//医生来了，挂牌“出诊”。。；//0表示医生临时不在 1表示医生在，2表示医院要关门；
 	*(int*)pv->lpBaseOffset = 1;
 	pv->m_exitproc = 1;
 	if(WaitForSingleObject(pv->exesema,INFINITE)==WAIT_FAILED)
@@ -112,10 +120,20 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	struct dataHeader dh;
 	while(1)
 	{
-		if(WaitForSingleObject(pv->exesema,INFINITE)==WAIT_FAILED)//我不主动去拿病情本，我要等病人通知写好了，再去拿。
+		if(WaitForSingleObject(pv->exesema,INFINITE)==WAIT_FAILED)//我不主动去拿病情本，我要等病人通知写好了，再去拿；
 		{
 			ErrorExit(TEXT("WaitForSingleObject"));
 			return 0;
+		}
+		if(WaitForSingleObject(pv->exitsema,1000)==WAIT_TIMEOUT)
+		{
+			*(int*)pv->lpBaseOffset = 2;
+			dh.cmd=0;
+			//ErrorExit(TEXT("88888888888888888"));
+		}
+		if(ReleaseSemaphore(pv->exitsema,1,NULL)==0)
+		{
+			ErrorExit(TEXT("ReleaseSemaphore cursocktsema"));
 		}
 		dh.cmd = 1;
 		//听听下班铃响了没= =。
@@ -247,8 +265,8 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));
 		wcscat_s(chmu,M_SIZE_SEMA,ids);
 		exesema =  CreateSemaphore(NULL,1,1,chmu);
-		//exesema = OpenSemaphore(SEMAPHORE_ALL_ACCESS,NULL,chmu);
-		//MessageBox(chmu,TEXT("bbbbbbbbbbbbb"),0);
+
+		exitsema =  CreateSemaphore(NULL,1,1,NULL);
 		hthread = CreateThread(NULL,NULL,ThreadProc,this,0,0);
 	}
 }

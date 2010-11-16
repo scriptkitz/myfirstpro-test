@@ -36,7 +36,7 @@ CtestProjectDoc::~CtestProjectDoc()
 	{
 		if (0 == UnhookWindowsHookEx(m_hook))
 		{
-			ErrorExit(TEXT("UnhookWindowsHookEx"));
+			//ErrorExit(TEXT("UnhookWindowsHookEx"));
 		}
 	}else if (m_ehook)
 	{

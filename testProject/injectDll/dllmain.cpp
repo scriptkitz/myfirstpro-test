@@ -70,10 +70,11 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int &len) // len是会
 	//dh.index++;
 	if(ReleaseSemaphore(exesema,1,NULL)==0)//写完了，给医生读。释放。
 	{
-		ErrorExit(TEXT("ReleaseSemaphore exesema"));
+		exitprosng = true;
+		//ErrorExit(TEXT("ReleaseSemaphore exesema")); 这里由于exe关闭时候冲突时候出错，但这里会导致崩溃。先屏蔽了把。
+		return;
 	}
-	//病人等待医生返回信息才能去开药；
-	if(WAIT_FAILED == WaitForSingleObject(cursocktsema,INFINITE))//挂起，等待exe来释放。
+	else if(WAIT_FAILED == WaitForSingleObject(cursocktsema,INFINITE))////病人等待医生返回信息才能去开药； 挂起，等待exe来释放。
 	{
 		ErrorExit(TEXT("WaitForSingleObject cursocktsema"));
 	}
