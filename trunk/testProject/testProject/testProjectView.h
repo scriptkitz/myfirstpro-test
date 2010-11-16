@@ -24,6 +24,7 @@ public:
 	int offsetgf;
 	int totalIndex;
 	HANDLE exesema;
+	HANDLE exitsema;
 	HANDLE cursocktsema;
 	HANDLE hthread;
 	int m_exitproc;
