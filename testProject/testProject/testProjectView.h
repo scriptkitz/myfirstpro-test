@@ -20,10 +20,11 @@ public:
 public:
 	HANDLE hsgFile;
 	LPVOID lpBaseOffset;
+	LPVOID lpDataOffset;
 	int offsetgf;
 	int totalIndex;
-	HANDLE readsema;
-	HANDLE writesema;
+	HANDLE exesema;
+	HANDLE cursocktsema;
 	HANDLE hthread;
 	int m_exitproc;
 // ÖØÐ´

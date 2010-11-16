@@ -29,24 +29,52 @@ CtestProjectView::CtestProjectView():hthread(0)
 {
 	// TODO: 在此处添加构造代码；
 	m_exitproc = 0;
-	readsema = 0;
-	writesema = 0;
+	exesema = 0;
+	cursocktsema = 0;
 	lpBaseOffset = 0;
 	hsgFile = 0;
 }
 
 CtestProjectView::~CtestProjectView()
 {
-	if (readsema)
+	DWORD dwRet = 0;
+	MSG msg;
+	
+	m_exitproc = 2;
+	if(ReleaseSemaphore(exesema,1,NULL)==0)
 	{
-		ReleaseSemaphore(readsema,1,NULL);
-		CloseHandle(readsema);
+		ErrorExit(TEXT("~~~~ReleaseSemaphore exesema"));
+	}
+	while (TRUE)
+	{
+		//wait for m_hThread to be over，and wait for
+		//QS_ALLINPUT（Any message is in the queue）
+		dwRet = MsgWaitForMultipleObjects (1, &hthread,   FALSE, INFINITE, QS_ALLINPUT);
+		switch(dwRet)
+		{
+		case WAIT_OBJECT_0: 
+			break; //break the loop
+		case WAIT_OBJECT_0 + 1:
+			//get the message from Queue
+			//and dispatch it to specific window
+			PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+			DispatchMessage(&msg);
+			continue;
+		default:
+			break; // unexpected failure
+		}
+		break;
+	}
+	if (exesema)
+	{
+		ReleaseSemaphore(exesema,1,NULL);
+		CloseHandle(exesema);
 	}
 	
-	if (writesema)
+	if (cursocktsema)
 	{
-		ReleaseSemaphore(writesema,1,NULL);//没用到：WaitForSingleObject(writesema)所以。不要release不让dll出错298
-		CloseHandle(writesema);
+		ReleaseSemaphore(cursocktsema,1,NULL);//没用到：WaitForSingleObject(cursocktsema)所以。不要release不让dll出错298
+		CloseHandle(cursocktsema);
 	}
 	if (lpBaseOffset)
 	{
@@ -63,71 +91,68 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	
 	CtestProjectView* pv = (CtestProjectView*)lpParameter;
 	DWORD pid = pv->GetDocument()->m_docSelPID;
-	if(WaitForSingleObject(pv->readsema,INFINITE)==WAIT_FAILED)
+
+	//医生来了，挂牌“出诊”。。；//0表示医生临时不在 1表示医生在，2表示医院要关门。
+	*(int*)pv->lpBaseOffset = 1;
+	pv->m_exitproc = 1;
+	if(WaitForSingleObject(pv->exesema,INFINITE)==WAIT_FAILED)
+	{
+		ErrorExit(TEXT("WaitForSingleObject"));
+		return 0;
+	}
+	if(WaitForSingleObject(pv->cursocktsema,INFINITE)==WAIT_FAILED)
 	{
 		ErrorExit(TEXT("WaitForSingleObject"));
 		return 0;
 	}
 	HANDLE hdr = OpenProcess(PROCESS_ALL_ACCESS,NULL,pid);
 	CListCtrl& listCtrl = pv->GetListCtrl();
-	int ta = 0,err =0,la =0,ddt=0;
-	HANDLE hd=0;
+	int la = 0;
 	HANDLE tarhd=0;
+	struct dataHeader dh;
 	while(1)
 	{
-		if(WaitForSingleObject(pv->readsema,INFINITE)==WAIT_FAILED)
+		if(WaitForSingleObject(pv->exesema,INFINITE)==WAIT_FAILED)//我不主动去拿病情本，我要等病人通知写好了，再去拿。
 		{
 			ErrorExit(TEXT("WaitForSingleObject"));
 			return 0;
 		}
-
-		la = *(int*)pv->lpBaseOffset;
-		hd = *(HANDLE*)((char*)pv->lpBaseOffset+4);
-
-		if (la != ta)
+		dh.cmd = 1;
+		//听听下班铃响了没= =。
+		switch(pv->m_exitproc)//
 		{
-			wchar_t bu[50]={0};
-			/*
-			if (!tarhd)
-			{
-				//static HANDLE tarhd=0;//这里变量声明这样导致了一个郁闷的错误，加载一个进程没问题，第二时候会导致锁死，最终原因就是这个变量，staic了。擦。闷。已经放上边了，并去掉了static；
-				if(DuplicateHandle(hdr,hd,GetCurrentProcess(),&tarhd,0, FALSE, DUPLICATE_SAME_ACCESS)==0)// 啊哈，没必要复制目标的句柄啦，因为创建的是有名字的信号量，全局的，所以直接用自己的句柄释放一样的。
-				{
-					ErrorExit(TEXT("DuplicateHandle"));
-				}
-			}
-			*/
-			swprintf_s(bu,50,TEXT("index:%d handle:%d ddt:%d"),la,hd,ddt);
-			listCtrl.InsertItem(0,bu);
-			//在下面写入数据，回写吧，让dll读的数据。;
-			if (pv->m_exitproc == 1)
-			{
-				//如果线程要退出。。。通知dll也要退出啦。。。；写入数据来通知dll。。唉。；
-
-				*(int*)((char*)pv->lpBaseOffset+8) = -1;
-				if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
-				{
-					ErrorExit(TEXT("ReleaseSemaphore1"));
-				}
-				return 0;
-			}
-			*(int*)((char*)pv->lpBaseOffset+8) = la;
-			//MessageBox(0,TEXT("aaaaaaaaaaaaaaa"),TEXT(""),0);
-			if(ReleaseSemaphore(pv->writesema,1,NULL)==0)
-			{
-				ErrorExit(TEXT("ReleaseSemaphore1"));
-			}
-
-			ta = la;
+		case 0://临时有事要出门会；
+			*(int*)pv->lpBaseOffset = 0;
+			break;
+		case 2://表示下班啦；
+			*(int*)pv->lpBaseOffset = 2;
+			dh.cmd=0;
+			break;
 		}
-		//if(ReleaseSemaphore(pv->readsema,1,NULL)==0)
-		//{
-		//	ErrorExit(TEXT("ReleaseSemaphore2"));
-		//}
+		//ok，病人写好了了。。我看看；
+		struct dataHeader* pdh = (struct dataHeader*)pv->lpDataOffset;
+		
+		//看看写的格式有没错误= =；
+		wchar_t bu[50]={0};
+		swprintf_s(bu,50,TEXT("index:%d"),pdh->index);
+		if (listCtrl)
+		{
+			listCtrl.InsertItem(0,bu);
+		}
+		//知道了病情，给病人开药方，病人正在等着读；
+		pdh->cmd = dh.cmd;
+		//MessageBox(0,TEXT("给病人开药方"),TEXT(""),0);
+		//药方开好，通知病人拿药方。。
+		if(ReleaseSemaphore(pv->cursocktsema,1,NULL)==0)
+		{
+			ErrorExit(TEXT("ReleaseSemaphore cursocktsema"));
+		}
+		if (pv->m_exitproc == 2)
+		{
+			//退出了。。。；
+			return 0;
+		}
 	}
-
-	
-	
 }
 
 BOOL CtestProjectView::PreCreateWindow(CREATESTRUCT& cs)
@@ -212,17 +237,17 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 	//	MessageBox(chmu,TEXT("CreateFileMapping"),0);
 		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,chmu);
 		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
+		lpDataOffset = (char*)lpBaseOffset+4;
+		memset(chmu,0,M_SIZE_SEMA);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(READ_SEMAPHORE));		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。
+		wcscat_s(chmu,M_SIZE_SEMA,ids);
+		cursocktsema = CreateSemaphore(NULL,1,1,chmu);
 
 		memset(chmu,0,M_SIZE_SEMA);
-		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));
 		wcscat_s(chmu,M_SIZE_SEMA,ids);
-		writesema = CreateSemaphore(NULL,1,1,chmu);
-
-		memset(chmu,0,M_SIZE_SEMA);
-		wcscat_s(chmu,M_SIZE_SEMA,TEXT(READ_SEMAPHORE));
-		wcscat_s(chmu,M_SIZE_SEMA,ids);
-		readsema =  CreateSemaphore(NULL,1,1,chmu);
-		//readsema = OpenSemaphore(SEMAPHORE_ALL_ACCESS,NULL,chmu);
+		exesema =  CreateSemaphore(NULL,1,1,chmu);
+		//exesema = OpenSemaphore(SEMAPHORE_ALL_ACCESS,NULL,chmu);
 		//MessageBox(chmu,TEXT("bbbbbbbbbbbbb"),0);
 		hthread = CreateThread(NULL,NULL,ThreadProc,this,0,0);
 	}
@@ -231,30 +256,6 @@ void CtestProjectView::OnUpdate(CView* /*pSender*/, LPARAM /*lHint*/, CObject* /
 
 void CtestProjectView::OnDestroy()
 {
-	DWORD dwRet = 0;
-	MSG msg;
-	// 唉，看来也不能放这个函数里，这个只有active的view才会响应这个onDestroy。后台的视图类都不会调用。擦。
-	m_exitproc = 1;
-	while (TRUE)
-	{
-		//wait for m_hThread to be over，and wait for
-		//QS_ALLINPUT（Any message is in the queue）
-		dwRet = MsgWaitForMultipleObjects (1, &hthread,   FALSE, INFINITE, QS_ALLINPUT);
-		switch(dwRet)
-		{
-		case WAIT_OBJECT_0: 
-			break; //break the loop
-		case WAIT_OBJECT_0 + 1:
-			//get the message from Queue
-			//and dispatch it to specific window
-			PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
-			DispatchMessage(&msg);
-			continue;
-		default:
-			break; // unexpected failure
-		}
-		break;
-	}
 	CListView::OnDestroy();
 	// TODO: Add your message handler code here
 }

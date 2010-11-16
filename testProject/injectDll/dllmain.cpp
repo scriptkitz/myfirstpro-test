@@ -15,13 +15,13 @@
 */
 #pragma comment(lib,"ws2_32.lib")
 HANDLE hsgFile = NULL;
-LPVOID lpBaseOffset =0;
+LPVOID lpBaseOffset =0,lpDataOffset=0;
 int offsetgf=0;
 int totalIndex=0;
 struct dataHeader dh;//
-HANDLE writesema=0 ,readsema=0; //信号量句柄
+HANDLE exesema=0 ,cursocktsema=0,socketsema =0; //信号量句柄
 HANDLE hMutex = NULL;
-int exitprosng = 0;
+bool exitprosng = false;
 
 // Target pointer for the uninstrumented Sleep API.
 int (WSAAPI * Real_send)(SOCKET s, const char * buf, int len, int flags) = send;
@@ -32,74 +32,65 @@ int (WSAAPI * Real_recvfrom)(SOCKET s,char * buf, int len, int flags,struct sock
 // Detour function that replaces the Sleep API.
 
 int tt = 0;
-static void writeDataFM(SOCKET s,int method,const char* buf,int len)
+static void writeDataFM(SOCKET s,int method,const char* buf,int &len) // len是会被修改返回的。所以不要改乱
 {
+	//看看有没医院要关门的牌子。；
 	if (exitprosng)
 	{
+		return;//要关门了？不取号了。走人；
+	}
+	//取号占位哈。。哥排队。哥文明；
+	if( WAIT_FAILED == WaitForSingleObject(socketsema,INFINITE))
+	{
+		ErrorExit(TEXT("WaitForSingleObject socketsema"));
+	}
+	//看看有没医院要关门的牌子。。；
+	if (exitprosng)
+	{
+		ReleaseSemaphore(socketsema,1,NULL);//丢了号。走人；
 		return;
 	}
-	if( WAIT_FAILED == WaitForSingleObject(writesema,INFINITE))//禁止自己写
+	//看看小窗口，有医生出诊么，如果没有医生在，判断一下是临时不在，还是医院要关门了。；
+	int hasdct = *(int*)lpBaseOffset;//0表示医生临时不在 1表示医生在，2表示医院要关门。
+	switch(hasdct)
 	{
-		ErrorExit(TEXT("WaitForSingleObject writesema"));
-	}
-	//MessageBox(0,TEXT("禁止自己写"),TEXT("dll"),0);
-
-	/*
-	wchar_t slen[10];
-	switch(method)
-	{
-	case 1:
-		tt = len;
-		_itow_s(tt,slen,10,10);
-		MessageBox(0,TEXT("send"),slen,0);
-		break;
-	case 2:
-		tt += len;
-		_itow_s(tt,slen,10,10);
-		MessageBox(0,TEXT("recv"),slen,0);
-		break;
-	case 3:
-		break;
-	case 4:
-		break;
-	}
-	*/
-	int ia = *(int*)lpBaseOffset;
-	ia++;
-	*(int*)lpBaseOffset = ia;
-	*(int*)((char*)lpBaseOffset +4) = (int)writesema;
-	if(ReleaseSemaphore(readsema,1,NULL)==0)//写完了，他可以读了。释放。
-	{
-		ErrorExit(TEXT("ReleaseSemaphore readsema"));
-	}
-	if(WAIT_FAILED == WaitForSingleObject(writesema,INFINITE))//锁写。。挂起，等待exe来释放。
-	{
-		ErrorExit(TEXT("WaitForSingleObject writesema2"));
-	}
-	//下面写读代码。。那边已经回写了数据。。。噶了个噶。。。
-	int bbt = *(int*)((char*)lpBaseOffset +8);
-	if (bbt == -1)
-	{
-		//标志exe退出注入了。。；
-		if(0==ReleaseSemaphore(writesema,1,NULL))
-		{
-			ErrorExit(TEXT("ReleaseSemaphore writesema2"));
-		}
-		exitprosng = 1;
+	case 0:	//0表示医生临时不在。那么就走人吧，不等了，让位子，请下一位。
+		ReleaseSemaphore(socketsema,1,NULL);
 		return;
+		break;
+	case 2:	//2表示医院要关门，那么写个大牌子(exitprosng),通知所有取了号(调用了WaitForSingleObject的)人，丢了号，走人吧,没取号的，不要取了。要关门了。并自己丢号走人。
+		exitprosng = true;
+		ReleaseSemaphore(socketsema,1,NULL);
+		return;
+		break;
 	}
-	*(int*)((char*)lpBaseOffset +8) = bbt+1;
-	//if( WAIT_FAILED == WaitForSingleObject(readsema,INFINITE))//禁止他读
-	//{
-	//	ErrorExit(TEXT("WaitForSingleObject readsema"));
-	//}
-
-	//MessageBox(0,TEXT("禁止他读"),TEXT("dll"),0);
-
-	//MessageBox(0,TEXT("通过exe释放了一次。"),TEXT("dll"),0);
-	if(0==ReleaseSemaphore(writesema,1,NULL))
+	//OK，有医生在，而且在等待读。写病情。；
+	struct dataHeader* phd = (struct dataHeader*)lpDataOffset;
+	phd->index++;
+	//dh.index++;
+	if(ReleaseSemaphore(exesema,1,NULL)==0)//写完了，给医生读。释放。
 	{
-		ErrorExit(TEXT("ReleaseSemaphore writesema2"));
+		ErrorExit(TEXT("ReleaseSemaphore exesema"));
+	}
+	//病人等待医生返回信息才能去开药；
+	if(WAIT_FAILED == WaitForSingleObject(cursocktsema,INFINITE))//挂起，等待exe来释放。
+	{
+		ErrorExit(TEXT("WaitForSingleObject cursocktsema"));
+	}
+	//医生通知药方写好。读药方。。
+	memcpy(&dh,lpDataOffset, sizeof(struct dataHeader));
+	switch(dh.cmd)
+	{
+		//命令。。exe对dll发送的命令。 0表示退出命令，要退出了。1表示不处理，直接通过，2表示拦截这次发送或者接收。3表示修改，修改这次的数据内容。
+	case 0:
+		exitprosng = true;
+		break;
+	}
+	//看看医生的命令。。；
+	//OK。。下一位。。。
+	if(0==ReleaseSemaphore(socketsema,1,NULL))
+	{
+		ErrorExit(TEXT("ReleaseSemaphore socketsema"));
 	}
 
 	/*
@@ -157,18 +148,26 @@ static void writeDataFM(SOCKET s,int method,const char* buf,int len)
 }
 static int WSAAPI Catch_send(SOCKET s, const char * buf, int len, int flags)
 {
-	writeDataFM(s,1,buf,len);
+	writeDataFM(s,1,buf,len);//可以修改发送的内容。。。。
 	return Real_send(s, buf, len, flags);
 }
 static int WSAAPI Catch_sendto(SOCKET s,const char * buf, int len, int flags, const struct sockaddr * to, int tolen)
 {
-	writeDataFM(s,3,buf,len);
+	writeDataFM(s,3,buf,len);//可以修改发送的内容。。。。
 	return Real_sendto(s,buf, len, flags,to, tolen);
 }
 static int WSAAPI Catch_recv(SOCKET s, char * buf, int len, int flags)
 {
-	int retlen = Real_recv(s, buf, len, flags);
-	writeDataFM(s,2,buf,retlen);
+	//应该先吧返回的内容放在自己buf里，然后处理完了在放回他的buf。
+	char *sbuf = new char[len];
+	int retlen = Real_recv(s, sbuf, len, flags);
+	writeDataFM(s,2,sbuf,retlen);
+	if (retlen > len)
+	{
+		retlen = len;
+		MessageBox(0,TEXT("接收的数据buffer过小啦。"),TEXT("错误"),0);
+	}
+	memcpy_s(buf,len,sbuf,retlen);
 	return retlen;
 }
 
@@ -197,7 +196,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_ATTACH:
 		//多一个进程运行多次loadlibrary，也只会运行一次DLL_PROCESS_ATTACH。如果已经加载就不会运行这里了。
 		//判断一下是否为exe程序调用的loadlibrary调用的代码。是的话就不再创建filemapping等。;
-		Sleep(500);
+		//Sleep(500);
 		ch = GetCurrentProcessId();
 
 		_itow_s((int)ch,ids,10,10);
@@ -219,18 +218,23 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		//MessageBox(0,chmu,TEXT("CreateFileMapping"),0);
 		hsgFile = CreateFileMapping(INVALID_HANDLE_VALUE,NULL,PAGE_EXECUTE_READWRITE,0,MAPPINGFILESIZE,chmu);
 		lpBaseOffset = MapViewOfFile(hsgFile,FILE_MAP_ALL_ACCESS,0,0,0);
+		lpDataOffset = (char*)lpBaseOffset+4; //前4位的int留着用来判断exe是否已经退出注入。
 		//
 		//注入多个进程时候根据每个进程的ID，创建不同的信号量。防止串号哈。;
 		memset(chmu,0,M_SIZE_SEMA);
 		wcscat_s(chmu,M_SIZE_SEMA,TEXT(WRITE_SEMAPHORE));
 		wcscat_s(chmu,M_SIZE_SEMA,ids);	
-		writesema = CreateSemaphore(NULL,1,1,chmu);
+		exesema = CreateSemaphore(NULL,1,1,chmu);
 
 		memset(chmu,0,M_SIZE_SEMA);
 		wcscat_s(chmu,M_SIZE_SEMA,TEXT(READ_SEMAPHORE));
 		wcscat_s(chmu,M_SIZE_SEMA,ids);	
-		readsema =  CreateSemaphore(NULL,1,1,chmu);
+		cursocktsema =  CreateSemaphore(NULL,1,1,chmu);
 
+		memset(chmu,0,M_SIZE_SEMA);
+		wcscat_s(chmu,M_SIZE_SEMA,TEXT(DLL_SEMAPHORE));
+		wcscat_s(chmu,M_SIZE_SEMA,ids);	
+		socketsema =  CreateSemaphore(NULL,1,1,chmu);
 		//MessageBox(0,chmu,TEXT("bbbbbbbbbbbbb"),0);
 		if (hsgFile == NULL)
 		{
@@ -262,15 +266,20 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 			ReleaseMutex(hMutex);
 			CloseHandle(hMutex);
 		}
-		if (writesema)
+		if (exesema)
 		{
-			ReleaseSemaphore(writesema,1,NULL);
-			CloseHandle(writesema);
+			ReleaseSemaphore(exesema,1,NULL);
+			CloseHandle(exesema);
 		}
-		if (readsema)
+		if (cursocktsema)
 		{
-			ReleaseSemaphore(readsema,1,NULL);
-			CloseHandle(readsema);
+			ReleaseSemaphore(cursocktsema,1,NULL);
+			CloseHandle(cursocktsema);
+		}
+		if (socketsema)
+		{
+			ReleaseSemaphore(socketsema,1,NULL);
+			CloseHandle(socketsema);
 		}
 		if (lpBaseOffset)
 		{
